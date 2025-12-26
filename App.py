@@ -1,4 +1,4 @@
-import streamlit as st
+﻿import streamlit as st
 import pandas as pd
 import hashlib
 import secrets
@@ -388,11 +388,23 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-st.title("� EIMS")
+# Display logo
+logo_path = "assets/logo.svg"
+if os.path.exists(logo_path):
+    with open(logo_path, "r", encoding="utf-8") as f:
+        logo_svg = f.read()
+    st.markdown(f'''<div style="text-align: center; margin-bottom: 20px;">{logo_svg}</div>''', unsafe_allow_html=True)
+else:
+    st.title(" EIMS")
 st.markdown("---")
 
 with st.sidebar:
-    st.header("EIMS")
+    # Display logo in sidebar
+    if os.path.exists("assets/logo.svg"):
+        with open("assets/logo.svg", "r", encoding="utf-8") as f:
+            st.markdown(f'''<div style="text-align: center; margin: 10px 0; transform: scale(0.8);">{f.read()}</div>''', unsafe_allow_html=True)
+    else:
+        st.header("EIMS")
     # build options depending on auth/role (exact mapping requested)
     # Generate page labels dynamically based on current language
     guest_pages = [t('login'), t('signup')]
@@ -1924,3 +1936,4 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
