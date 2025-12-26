@@ -7,9 +7,9 @@ import importlib
 from datetime import datetime, date
 from database_postgres import Database
 from data_manager import DataManager
-import os\nfrom PIL import Image
+import os
+from PIL import Image
 
-# Configure page for better performance
 # Configure page icon
 logo_icon = "assets/logo.png"
 if os.path.exists(logo_icon):
