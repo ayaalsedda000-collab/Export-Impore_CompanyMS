@@ -1,7 +1,7 @@
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-from database import Database
+from database_postgres import Database
 
 class DataManager:
     def __init__(self):
