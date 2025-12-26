@@ -12,7 +12,7 @@ import os
 # Configure page for better performance
 st.set_page_config(
     page_title="EIMS",
-    page_icon="📊",
+    page_icon="�",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -214,8 +214,8 @@ TRANSLATIONS = {
 }
 
 st.set_page_config(
-    page_title="EMSs",
-    page_icon="📊",
+    page_title="EIMS",
+    page_icon="🚢",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -388,11 +388,11 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-st.title("📊 EIMS")
+st.title("� EIMS")
 st.markdown("---")
 
 with st.sidebar:
-    st.header("EMS")
+    st.header("EIMS")
     # build options depending on auth/role (exact mapping requested)
     # Generate page labels dynamically based on current language
     guest_pages = [t('login'), t('signup')]
