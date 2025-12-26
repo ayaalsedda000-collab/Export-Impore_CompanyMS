@@ -1,31 +1,36 @@
-# Employee Management System (EMS)
+# Employee Import Management System (EIMS)
 
 نظام إدارة الموظفين - تطبيق ويب شامل لإدارة بيانات الموظفين والشحنات والإجازات.
 
 ## المميزات
 
 ### 🏢 إدارة الموظفين
+
 - إضافة وتعديل وحذف بيانات الموظفين
 - البحث والتصفية المتقدمة
 - تصدير البيانات (Excel/CSV)
 
 ### 📦 إدارة الشحنات
+
 - تتبع الشحنات في الوقت الفعلي
 - إدارة البضائع والحاويات
 - تحديث حالة الشحنة
 - رفع المستندات
 
 ### 📝 إدارة الإجازات
+
 - طلب إجازة من الموظفين
 - الموافقة/الرفض من المدراء
 - رفع مستندات داعمة
 
 ### 📊 التحليلات
+
 - رسوم بيانية تفاعلية
 - إحصائيات شاملة
 - تقارير مفصلة
 
 ### 🌐 دعم اللغات
+
 - English (الإنجليزية)
 - Türkçe (التركية)
 
@@ -40,18 +45,21 @@
 ## التثبيت المحلي
 
 ### المتطلبات
+
 - Python 3.10 أو أحدث
 - PostgreSQL database
 
 ### الخطوات
 
 1. استنساخ المشروع:
+
 ```bash
 git clone <repository-url>
-cd EMS
+cd EIMS
 ```
 
 2. إنشاء بيئة افتراضية:
+
 ```bash
 python -m venv .venv
 ```
@@ -59,16 +67,19 @@ python -m venv .venv
 3. تفعيل البيئة الافتراضية:
 
 **Windows:**
+
 ```bash
 .venv\Scripts\activate
 ```
 
 **Linux/Mac:**
+
 ```bash
 source .venv/bin/activate
 ```
 
 4. تثبيت المكتبات:
+
 ```bash
 pip install -r requirements.txt
 ```
@@ -76,11 +87,13 @@ pip install -r requirements.txt
 5. إعداد قاعدة البيانات:
 
 إنشاء ملف `.streamlit/secrets.toml`:
+
 ```toml
 DATABASE_URL = "postgresql://user:password@host:port/database"
 ```
 
 6. تشغيل التطبيق:
+
 ```bash
 streamlit run App.py
 ```
@@ -90,6 +103,7 @@ streamlit run App.py
 ### الخطوات:
 
 1. **رفع الكود على GitHub**:
+
 ```bash
 git init
 git add .
@@ -99,11 +113,13 @@ git push -u origin main
 ```
 
 2. **الذهاب إلى Streamlit Cloud**:
+
    - افتح [share.streamlit.io](https://share.streamlit.io)
    - سجل دخول بحساب GitHub
    - اضغط "New app"
 
 3. **إعدادات النشر**:
+
    - Repository: اختر المستودع الخاص بك
    - Branch: main
    - Main file path: App.py
@@ -111,6 +127,7 @@ git push -u origin main
 4. **إضافة Secrets**:
    - في صفحة التطبيق → Settings → Secrets
    - أضف:
+
 ```toml
 DATABASE_URL = "postgresql://postgres.xxx:password@aws-x-xx-xx-x.pooler.supabase.com:6543/postgres"
 ```
@@ -124,16 +141,19 @@ DATABASE_URL = "postgresql://postgres.xxx:password@aws-x-xx-xx-x.pooler.supabase
 ### حسابات افتراضية:
 
 **Admin:**
+
 - Email: `admin@ems.com`
 - Password: `admin123`
 
 **Employee:**
+
 - Email: `employee@ems.com`
 - Password: `employee123`
 
 ### الصفحات الرئيسية:
 
 #### للمدراء (Admin):
+
 - Dashboard - لوحة التحكم
 - Manage Shipments - إدارة الشحنات
 - Manage Users - إدارة المستخدمين
@@ -141,6 +161,7 @@ DATABASE_URL = "postgresql://postgres.xxx:password@aws-x-xx-xx-x.pooler.supabase
 - Manage Leaves - إدارة الإجازات
 
 #### للموظفين (Employee):
+
 - Dashboard - لوحة التحكم
 - View Data - عرض البيانات
 - Request Leave - طلب إجازة

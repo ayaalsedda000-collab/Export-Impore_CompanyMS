@@ -11,7 +11,7 @@ import os
 
 # Configure page for better performance
 st.set_page_config(
-    page_title="EMS",
+    page_title="EIMS",
     page_icon="📊",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -20,7 +20,7 @@ st.set_page_config(
 # Language translations dictionary
 TRANSLATIONS = {
     'en': {
-        'title': 'EMS',
+        'title': 'EIMS',
         'login': '🔐 Login',
         'signup': '📝 Sign Up',
         'dashboard': '🏠 Dashboard',
@@ -116,7 +116,7 @@ TRANSLATIONS = {
         'delete_shipment': '🗑️ Delete Shipment',
     },
     'tr': {
-        'title': 'EMS',
+        'title': 'EIMS',
         'login': '🔐 Giriş Yap',
         'signup': '📝 Kaydol',
         'dashboard': '🏠 Gösterge Paneli',
@@ -388,7 +388,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-st.title("📊 EMS")
+st.title("📊 EIMS")
 st.markdown("---")
 
 with st.sidebar:
@@ -1919,7 +1919,7 @@ st.markdown("---")
 st.markdown(
     """
     <div style='text-align: center; color: #666;'>
-        <p>EMS | Company Data Management System</p>
+        <p>EIMS | Company Data Management System</p>
     </div>
     """,
     unsafe_allow_html=True
