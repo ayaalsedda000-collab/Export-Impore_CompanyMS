@@ -7,12 +7,19 @@ import importlib
 from datetime import datetime, date
 from database_postgres import Database
 from data_manager import DataManager
-import os
+import os\nfrom PIL import Image
 
 # Configure page for better performance
+# Configure page icon
+logo_icon = "assets/logo.png"
+if os.path.exists(logo_icon):
+    page_icon = Image.open(logo_icon)
+else:
+    page_icon = ""
+
 st.set_page_config(
     page_title="EIMS",
-    page_icon="�",
+    page_icon=page_icon,
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -213,9 +220,16 @@ TRANSLATIONS = {
     }
 }
 
+# Configure page icon
+logo_icon = "assets/logo.png"
+if os.path.exists(logo_icon):
+    page_icon = Image.open(logo_icon)
+else:
+    page_icon = ""
+
 st.set_page_config(
     page_title="EIMS",
-    page_icon="🚢",
+    page_icon=page_icon,
     layout="wide",
     initial_sidebar_state="expanded"
 )
