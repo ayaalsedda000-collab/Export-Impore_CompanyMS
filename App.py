@@ -389,19 +389,27 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Display logo
-logo_path = "assets/logo.svg"
+logo_path = "assets/logo.png"
 if os.path.exists(logo_path):
-    with open(logo_path, "r", encoding="utf-8") as f:
-        logo_svg = f.read()
-    st.markdown(f'''<div style="text-align: center; margin-bottom: 20px;">{logo_svg}</div>''', unsafe_allow_html=True)
+    st.image(logo_path, width=20, use_container_width=False)
 else:
-    st.title(" EIMS")
+    # Fallback to SVG if PNG not found
+    logo_svg = "assets/logo.svg"
+    if os.path.exists(logo_svg):
+        with open(logo_svg, "r", encoding="utf-8") as f:
+            st.markdown(f'''<div style="text-align: center; margin-bottom: 20px;">{f.read()}</div>''', unsafe_allow_html=True)
+    else:
+        st.title("🚢 EIMS")
 st.markdown("---")
 
 with st.sidebar:
     # Display logo in sidebar
-    if os.path.exists("assets/logo.svg"):
-        with open("assets/logo.svg", "r", encoding="utf-8") as f:
+    logo_png = "assets/logo.png"
+    logo_svg = "assets/logo.svg"
+    if os.path.exists(logo_png):
+        st.image(logo_png, width=20, use_container_width=False)
+    elif os.path.exists(logo_svg):
+        with open(logo_svg, "r", encoding="utf-8") as f:
             st.markdown(f'''<div style="text-align: center; margin: 10px 0; transform: scale(0.8);">{f.read()}</div>''', unsafe_allow_html=True)
     else:
         st.header("EIMS")
