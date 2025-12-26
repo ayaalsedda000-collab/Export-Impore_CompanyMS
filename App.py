@@ -402,21 +402,8 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Display logo
-logo_path = "assets/logo.png"
-if os.path.exists(logo_path):
-    # Center the logo with better quality
-    col1, col2, col3 = st.columns([1, 2, 1])
-    with col2:
-        st.image(logo_path, width=120, output_format="PNG")
-else:
-    # Fallback to SVG if PNG not found
-    logo_svg = "assets/logo.svg"
-    if os.path.exists(logo_svg):
-        with open(logo_svg, "r", encoding="utf-8") as f:
-            st.markdown(f'''<div style="text-align: center; margin-bottom: 20px;">{f.read()}</div>''', unsafe_allow_html=True)
-    else:
-        st.title("🚢 EIMS")
+# Display title
+st.title("🚢 EIMS")
 st.markdown("---")
 
 with st.sidebar:
@@ -424,7 +411,7 @@ with st.sidebar:
     logo_png = "assets/logo.png"
     logo_svg = "assets/logo.svg"
     if os.path.exists(logo_png):
-        st.image(logo_png, width=100, output_format="PNG")
+        st.image(logo_png, width=80, output_format="PNG")
     elif os.path.exists(logo_svg):
         with open(logo_svg, "r", encoding="utf-8") as f:
             st.markdown(f'''<div style="text-align: center; margin: 10px 0; transform: scale(0.8);">{f.read()}</div>''', unsafe_allow_html=True)
