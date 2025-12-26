@@ -544,7 +544,6 @@ if page_matches(page, 'login'):
                 else:
                     hash_val = _hash_password(password, user['salt'])
                     if hash_val == user['password_hash']:
-                        st.success("Login successful")
                         # include role so UI can branch by permissions
                         user_role = user.get('role', 'employee')
                         st.session_state['user'] = {'id': user['id'], 'email': user['email'], 'role': user_role}
@@ -621,10 +620,8 @@ elif page_matches(page, 'signup'):
                                 phone=phone if phone else "",
                                 status=status
                             )
-                            st.success("✅ Account created successfully! You are now logged in.")
                             user = db.get_user_by_email(email)
                             st.session_state['user'] = {'id': user['id'], 'email': user['email'], 'role': user.get('role', 'employee')}
-                            time.sleep(1)
                             _safe_rerun()
                         else:
                             st.error("Failed to create account. Try again.")
