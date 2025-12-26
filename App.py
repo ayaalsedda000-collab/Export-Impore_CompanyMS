@@ -74,7 +74,7 @@ TRANSLATIONS = {
         'employee': 'Employee',
         'client': 'Client',
         'admin': 'Admin',
-        'shipments': '🚢 Shipments',
+        'shipments': '📊 Shipments',
         'add_shipment': '➕ Add Shipment',
         'my_shipments': '📦 My Shipments',
         'track_shipment': '🗺️ Track Shipment',
@@ -403,7 +403,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Display title
-st.title("🚢 EIMS")
+st.title("📊 EIMS")
 st.markdown("---")
 
 with st.sidebar:
