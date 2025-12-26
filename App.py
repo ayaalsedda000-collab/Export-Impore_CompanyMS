@@ -405,7 +405,7 @@ st.markdown("""
 # Display logo
 logo_path = "assets/logo.png"
 if os.path.exists(logo_path):
-    st.image(logo_path, width=20, use_container_width=False)
+    st.image(logo_path, width=100, use_container_width=False)
 else:
     # Fallback to SVG if PNG not found
     logo_svg = "assets/logo.svg"
@@ -421,7 +421,7 @@ with st.sidebar:
     logo_png = "assets/logo.png"
     logo_svg = "assets/logo.svg"
     if os.path.exists(logo_png):
-        st.image(logo_png, width=20, use_container_width=False)
+        st.image(logo_png, width=100, use_container_width=False)
     elif os.path.exists(logo_svg):
         with open(logo_svg, "r", encoding="utf-8") as f:
             st.markdown(f'''<div style="text-align: center; margin: 10px 0; transform: scale(0.8);">{f.read()}</div>''', unsafe_allow_html=True)
