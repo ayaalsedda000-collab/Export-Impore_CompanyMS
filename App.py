@@ -405,16 +405,10 @@ st.markdown("""
 # Display logo
 logo_path = "assets/logo.png"
 if os.path.exists(logo_path):
-    import base64
-    with open(logo_path, "rb") as f:
-        logo_data = base64.b64encode(f.read()).decode()
-    st.markdown(f'''
-        <div style="text-align: center; margin-bottom: 20px;">
-            <img src="data:image/png;base64,{logo_data}" 
-                 style="width: 150px; height: 150px; image-rendering: -webkit-optimize-contrast; image-rendering: crisp-edges;" 
-                 alt="EIMS Logo">
-        </div>
-    ''', unsafe_allow_html=True)
+    # Center the logo with better quality
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        st.image(logo_path, width=120, output_format="PNG")
 else:
     # Fallback to SVG if PNG not found
     logo_svg = "assets/logo.svg"
@@ -430,16 +424,7 @@ with st.sidebar:
     logo_png = "assets/logo.png"
     logo_svg = "assets/logo.svg"
     if os.path.exists(logo_png):
-        import base64
-        with open(logo_png, "rb") as f:
-            logo_data = base64.b64encode(f.read()).decode()
-        st.markdown(f'''
-            <div style="text-align: center; margin: 10px 0;">
-                <img src="data:image/png;base64,{logo_data}" 
-                     style="width: 120px; height: 120px; image-rendering: -webkit-optimize-contrast; image-rendering: crisp-edges;" 
-                     alt="EIMS Logo">
-            </div>
-        ''', unsafe_allow_html=True)
+        st.image(logo_png, width=100, output_format="PNG")
     elif os.path.exists(logo_svg):
         with open(logo_svg, "r", encoding="utf-8") as f:
             st.markdown(f'''<div style="text-align: center; margin: 10px 0; transform: scale(0.8);">{f.read()}</div>''', unsafe_allow_html=True)
