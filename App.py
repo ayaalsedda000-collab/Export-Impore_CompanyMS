@@ -708,17 +708,15 @@ elif page_matches(page, 'signup'):
         # Show registration form based on selected type
         role_choice = st.session_state['signup_type']
         
-        # Header with back button
-        col_back, col_title = st.columns([1, 4])
-        with col_back:
-            if st.button("⬅ Change", key="change_type", help="Change account type"):
-                del st.session_state['signup_type']
-                st.rerun()
+        # Back button on top left
+        if st.button("⬅ Change", key="change_type", help="Change account type"):
+            del st.session_state['signup_type']
+            st.rerun()
         
-        with col_title:
-            icon = "👨‍💼" if role_choice == "employee" else "👤"
-            account_type = "Employee" if role_choice == "employee" else "Client"
-            st.markdown(f"<h2 style='text-align: center; color: #1E88E5;'>{icon} {account_type} Registration</h2>", unsafe_allow_html=True)
+        # Centered title
+        icon = "👨‍💼" if role_choice == "employee" else "👤"
+        account_type = "Employee" if role_choice == "employee" else "Client"
+        st.markdown(f"<h2 style='text-align: center; color: #1E88E5; margin-top: 20px;'>{icon} {account_type} Registration</h2>", unsafe_allow_html=True)
         
         st.markdown("---")
         
