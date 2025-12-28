@@ -68,7 +68,7 @@ TRANSLATIONS = {
         'user': 'User',
         'employee': 'Employee',
         'client': 'Client',
-        'admin': 'Manager',
+        'manager': 'Manager',
         'shipments': '📊 Shipments',
         'add_shipment': '➕ Add Shipment',
         'my_shipments': '📦 My Shipments',
@@ -1456,27 +1456,42 @@ elif page_matches(page, 'manage_users'):
         st.stop()
 
     try:
-        users_df = db.get_all_users()
-        if users_df.empty:
+        # Get all records from company_records (same as View Data)
+        df = get_cached_records()
+        
+        if df.empty:
             st.info("No users found.")
         else:
-            st.dataframe(users_df)
+            # Display the full data table
+            st.dataframe(df, use_container_width=True, height=400)
+            
             st.markdown("---")
             st.subheader("Change User Role")
-            cols = st.columns(3)
-            with cols[0]:
-                selected_user = st.selectbox("Select user:", users_df['email'].tolist())
-            with cols[1]:
-                new_role = st.selectbox("New role:", ["employee", "client", "manager"])
-            with cols[2]:
-                if st.button("Update Role"):
-                    try:
-                        uid = int(users_df[users_df['email'] == selected_user]['id'].iloc[0])
-                        db.update_user_role(uid, new_role)
-                        st.success("User role updated.")
-                        _safe_rerun()
-                    except Exception as e:
-                        st.error(f"Failed to update role: {str(e)}")
+            
+            # Get list of users with email
+            users_with_email = df[df['email'].notna()]['email'].tolist()
+            
+            if not users_with_email:
+                st.warning("No users with email addresses found.")
+            else:
+                cols = st.columns(3)
+                with cols[0]:
+                    selected_user = st.selectbox("Select user:", users_with_email)
+                with cols[1]:
+                    new_role = st.selectbox("New role:", ["employee", "client", "manager"])
+                with cols[2]:
+                    if st.button("Update Role"):
+                        try:
+                            # Get user from users table by email
+                            existing_user = db.get_user_by_email(selected_user)
+                            if existing_user:
+                                db.update_user_role(existing_user['id'], new_role)
+                                st.success("User role updated.")
+                                _safe_rerun()
+                            else:
+                                st.error("User not found in users table. Please create login account first.")
+                        except Exception as e:
+                            st.error(f"Failed to update role: {str(e)}")
     except Exception as e:
         st.error(f"Error loading users: {str(e)}")
 
