@@ -68,7 +68,7 @@ TRANSLATIONS = {
         'user': 'User',
         'employee': 'Employee',
         'client': 'Client',
-        'admin': 'Admin',
+        'admin': 'Manager',
         'shipments': '📊 Shipments',
         'add_shipment': '➕ Add Shipment',
         'my_shipments': '📦 My Shipments',
@@ -968,26 +968,29 @@ elif page == "📋 View Data":
 elif page == "➕ Add Data":
     st.header("Add New Record")
     
+    # User account settings OUTSIDE form to allow dynamic updates
+    st.subheader("Account Settings")
+    col_acc1, col_acc2 = st.columns(2)
+    with col_acc1:
+        create_account = st.checkbox("Create login account for this employee", value=True)
+    with col_acc2:
+        if create_account:
+            account_role = st.selectbox("Account Role", ["employee", "client", "manager"], index=0)
+            auto_password = st.checkbox("Auto-generate password", value=True)
+            if not auto_password:
+                user_password = st.text_input("Password", type="password", placeholder="Enter password")
+        else:
+            account_role = "employee"
+            auto_password = True
+    
+    st.markdown("---")
+    
+    # Check if adding a client
+    is_client = create_account and account_role == "client"
+    
+    # Now the form with dynamic content
     with st.form("add_form"):
-        # User account settings at the top to determine role first
-        st.subheader("Account Settings")
-        col_acc1, col_acc2 = st.columns(2)
-        with col_acc1:
-            create_account = st.checkbox("Create login account for this employee", value=True)
-        with col_acc2:
-            if create_account:
-                account_role = st.selectbox("Account Role", ["employee", "client", "admin"], index=0)
-                auto_password = st.checkbox("Auto-generate password", value=True)
-                if not auto_password:
-                    user_password = st.text_input("Password", type="password", placeholder="Enter password")
-            else:
-                account_role = "employee"
-        
-        st.markdown("---")
         st.subheader("Personal Information")
-        
-        # Check if adding a client
-        is_client = create_account and account_role == "client"
         
         if is_client:
             # Simplified form for clients (no department, position, salary)
@@ -1464,7 +1467,7 @@ elif page_matches(page, 'manage_users'):
             with cols[0]:
                 selected_user = st.selectbox("Select user:", users_df['email'].tolist())
             with cols[1]:
-                new_role = st.selectbox("New role:", ["employee", "client", "admin"])
+                new_role = st.selectbox("New role:", ["employee", "client", "manager"])
             with cols[2]:
                 if st.button("Update Role"):
                     try:
