@@ -929,44 +929,22 @@ elif page == "📋 View Data":
         if selected_role != 'All' and 'role' in df.columns:
             df = df[df['role'] == selected_role]
         
-        # Pagination for better performance
-        rows_per_page = 50
-        total_rows = len(df)
-        total_pages = (total_rows // rows_per_page) + (1 if total_rows % rows_per_page > 0 else 0)
-        
-        if 'page_num' not in st.session_state:
-            st.session_state.page_num = 0
-        
-        col_p1, col_p2, col_p3 = st.columns([1, 3, 1])
-        with col_p1:
-            if st.button("⬅️ Previous", disabled=st.session_state.page_num == 0):
-                st.session_state.page_num -= 1
-                st.rerun()
-        with col_p3:
-            if st.button("Next ➡️", disabled=st.session_state.page_num >= total_pages - 1):
-                st.session_state.page_num += 1
-                st.rerun()
-        
-        start_idx = st.session_state.page_num * rows_per_page
-        end_idx = start_idx + rows_per_page
-        df_page = df.iloc[start_idx:end_idx]
-        
         # Display different columns based on role filter
         if selected_role == 'client':
             # For clients, show only: id, name, email, phone, status, hire_date, password, created_at
             client_cols = ['id', 'employee_name', 'email', 'phone', 'status', 'hire_date']
-            if 'password' in df_page.columns:
+            if 'password' in df.columns:
                 client_cols.insert(3, 'password')
-            if 'role' in df_page.columns:
+            if 'role' in df.columns:
                 client_cols.insert(3, 'role')
-            if 'created_at' in df_page.columns:
+            if 'created_at' in df.columns:
                 client_cols.append('created_at')
             
             # Filter only existing columns
-            display_cols = [col for col in client_cols if col in df_page.columns]
-            df_display = df_page[display_cols]
+            display_cols = [col for col in client_cols if col in df.columns]
+            df_display = df[display_cols]
         else:
-            df_display = df_page
+            df_display = df
         
         # Use column_config for better performance
         st.dataframe(
