@@ -660,3 +660,81 @@ class Database:
             'in_transit': in_transit,
             'total_value': round(total_value, 2)
         }
+
+    def init_messages_table(self):
+        """Initialize messages table for client-employee communication"""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS messages (
+                id SERIAL PRIMARY KEY,
+                from_user_id INTEGER NOT NULL,
+                to_user_id INTEGER NOT NULL,
+                subject TEXT NOT NULL,
+                content TEXT NOT NULL,
+                shipment_id INTEGER,
+                is_read INTEGER DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY(from_user_id) REFERENCES users(id),
+                FOREIGN KEY(to_user_id) REFERENCES users(id),
+                FOREIGN KEY(shipment_id) REFERENCES shipments(id) ON DELETE SET NULL
+            )
+        ''')
+        
+        # Create indexes for faster queries
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_message_from ON messages(from_user_id)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_message_to ON messages(to_user_id)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_message_shipment ON messages(shipment_id)")
+        
+        conn.commit()
+        conn.close()
+
+    def send_message(self, from_user_id, to_user_id, subject, content, shipment_id=None):
+        """Send a message from one user to another"""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        try:
+            cursor.execute('''
+                INSERT INTO messages (from_user_id, to_user_id, subject, content, shipment_id)
+                VALUES (%s, %s, %s, %s, %s)
+            ''', (from_user_id, to_user_id, subject, content, shipment_id))
+            conn.commit()
+            return True
+        except Exception as e:
+            print(f"Error sending message: {e}")
+            return False
+        finally:
+            conn.close()
+
+    def get_user_messages(self, user_id):
+        """Get all messages for a user (sent and received)"""
+        query = """
+            SELECT m.*, 
+                   u_from.email as from_email, 
+                   u_to.email as to_email,
+                   s.shipment_number
+            FROM messages m
+            JOIN users u_from ON m.from_user_id = u_from.id
+            JOIN users u_to ON m.to_user_id = u_to.id
+            LEFT JOIN shipments s ON m.shipment_id = s.id
+            WHERE m.from_user_id = %(user_id)s OR m.to_user_id = %(user_id)s
+            ORDER BY m.created_at DESC
+        """
+        return pd.read_sql_query(query, Database._engine, params={'user_id': user_id})
+
+    def mark_message_read(self, message_id):
+        """Mark a message as read"""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        cursor.execute('UPDATE messages SET is_read=1 WHERE id=%s', (message_id,))
+        conn.commit()
+        conn.close()
+
+    def get_unread_count(self, user_id):
+        """Get count of unread messages for a user"""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        cursor.execute('SELECT COUNT(*) FROM messages WHERE to_user_id=%s AND is_read=0', (user_id,))
+        count = cursor.fetchone()[0]
+        conn.close()
+        return count

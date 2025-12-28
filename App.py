@@ -116,6 +116,14 @@ TRANSLATIONS = {
         'client_name': 'Client Name',
         'edit_shipment': '✏️ Edit Shipment',
         'delete_shipment': '🗑️ Delete Shipment',
+        'messages': '💬 Messages',
+        'send_message': 'Send Message',
+        'message_subject': 'Subject',
+        'message_content': 'Message',
+        'to': 'To',
+        'from': 'From',
+        'date': 'Date',
+        'reply': 'Reply',
     },
     'tr': {
         'title': 'EIMS',
@@ -310,6 +318,7 @@ try:
     db.init_tracking_updates_table()
     db.init_documents_table()
     db.init_cargo_requests_table()
+    db.init_messages_table()
 except Exception as e:
     print(f"Error initializing shipment tables: {e}")
 
@@ -452,10 +461,10 @@ with st.sidebar:
     # employees can manage shipments and cargo
     employee_pages = [
         t('manage_shipments'), t('add_shipment'), t('edit_shipment'), t('delete_shipment'),
-        t('track_shipment'), t('shipment_analytics'), t('manage_cargo_requests'), t('request_leave')
+        t('track_shipment'), t('shipment_analytics'), t('manage_cargo_requests'), t('request_leave'), t('messages')
     ]
     # clients can only view and track their own shipments
-    client_pages = [t('my_shipments'), t('track_shipment'), t('cargo_requests')]
+    client_pages = [t('my_shipments'), t('track_shipment'), t('cargo_requests'), t('messages')]
     admin_pages = [
         t('dashboard'), t('view'), t('add'), t('edit'), t('delete'),
         t('analytics'), t('manage_leaves'), t('manage_users'),
@@ -2292,6 +2301,142 @@ elif page_matches(page, 'delete_shipment'):
                     _safe_rerun()
                 except Exception as e:
                     st.error(f"❌ Error deleting shipment: {str(e)}")
+    
+    except Exception as e:
+        st.error(f"Error: {str(e)}")
+
+elif page == "💬 Messages":
+    st.header("💬 Messages")
+    st.markdown("### Communication between Clients and Employees")
+    
+    try:
+        current_user = st.session_state['user']
+        user_id = current_user['id']
+        user_role = current_user.get('role', 'client')
+        
+        # Create tabs for Inbox and Send Message
+        tab1, tab2 = st.tabs(["📥 Inbox", "✉️ Send Message"])
+        
+        with tab1:
+            # Display messages
+            st.markdown("#### Your Messages")
+            
+            messages_df = db.get_user_messages(user_id)
+            
+            if len(messages_df) == 0:
+                st.info("📭 No messages yet.")
+            else:
+                # Show unread count
+                unread_count = db.get_unread_count(user_id)
+                if unread_count > 0:
+                    st.warning(f"📬 You have {unread_count} unread message(s)")
+                
+                for idx, msg in messages_df.iterrows():
+                    # Determine if this is sent or received
+                    is_received = msg['to_user_id'] == user_id
+                    
+                    # Create expandable message
+                    with st.expander(
+                        f"{'📬' if is_received and msg['is_read'] == 0 else '📭'} "
+                        f"{'From' if is_received else 'To'}: {msg['from_email'] if is_received else msg['to_email']} - "
+                        f"{msg['subject']} ({msg['created_at']})"
+                    ):
+                        col1, col2 = st.columns([3, 1])
+                        
+                        with col1:
+                            st.markdown(f"**Subject:** {msg['subject']}")
+                            st.markdown(f"**From:** {msg['from_email']}")
+                            st.markdown(f"**To:** {msg['to_email']}")
+                            if msg['shipment_number']:
+                                st.markdown(f"**Shipment:** {msg['shipment_number']}")
+                            st.markdown(f"**Date:** {msg['created_at']}")
+                            st.markdown("---")
+                            st.markdown(f"**Message:**")
+                            st.write(msg['content'])
+                        
+                        with col2:
+                            if is_received and msg['is_read'] == 0:
+                                if st.button("✓ Mark as Read", key=f"read_{msg['id']}"):
+                                    db.mark_message_read(msg['id'])
+                                    st.rerun()
+                            
+                            # Reply button
+                            if st.button("↩️ Reply", key=f"reply_{msg['id']}"):
+                                st.session_state['reply_to'] = {
+                                    'email': msg['from_email'] if is_received else msg['to_email'],
+                                    'subject': f"Re: {msg['subject']}",
+                                    'shipment_id': msg.get('shipment_id')
+                                }
+                                st.rerun()
+        
+        with tab2:
+            st.markdown("#### Send New Message")
+            
+            # Get list of users to send to
+            if user_role == 'client':
+                # Clients can send to employees
+                conn = db.get_connection()
+                cursor = conn.cursor()
+                cursor.execute("SELECT id, email FROM users WHERE role IN ('employee', 'manager')")
+                users = cursor.fetchall()
+                conn.close()
+            else:
+                # Employees can send to clients
+                conn = db.get_connection()
+                cursor = conn.cursor()
+                cursor.execute("SELECT id, email FROM users WHERE role='client'")
+                users = cursor.fetchall()
+                conn.close()
+            
+            if len(users) == 0:
+                st.warning("No users available to send messages to.")
+            else:
+                with st.form("send_message_form"):
+                    # Check if replying
+                    if 'reply_to' in st.session_state:
+                        reply_data = st.session_state['reply_to']
+                        to_email = st.text_input("To:", value=reply_data['email'], disabled=True)
+                        # Find user ID from email
+                        to_user = next((u for u in users if u[1] == reply_data['email']), None)
+                        to_user_id = to_user[0] if to_user else users[0][0]
+                        subject = st.text_input("Subject:", value=reply_data['subject'])
+                        
+                        # Clear reply state after form
+                        del st.session_state['reply_to']
+                    else:
+                        user_emails = [u[1] for u in users]
+                        to_email = st.selectbox("To:", user_emails)
+                        to_user_id = next((u[0] for u in users if u[1] == to_email), users[0][0])
+                        subject = st.text_input("Subject:")
+                    
+                    # Optional: Select shipment
+                    if user_role == 'client':
+                        client_shipments = db.get_shipments_by_client(user_id)
+                        if len(client_shipments) > 0:
+                            shipment_options = ["None"] + client_shipments['shipment_number'].tolist()
+                            selected_shipment = st.selectbox("Related Shipment (optional):", shipment_options)
+                            shipment_id = None
+                            if selected_shipment != "None":
+                                shipment_id = client_shipments[client_shipments['shipment_number'] == selected_shipment]['id'].iloc[0]
+                        else:
+                            shipment_id = None
+                    else:
+                        shipment_id = None
+                    
+                    content = st.text_area("Message:", height=200)
+                    
+                    submit = st.form_submit_button("📤 Send Message")
+                    
+                    if submit:
+                        if not subject or not content:
+                            st.error("Please fill in subject and message content.")
+                        else:
+                            if db.send_message(user_id, to_user_id, subject, content, shipment_id):
+                                st.success("✅ Message sent successfully!")
+                                time.sleep(1)
+                                st.rerun()
+                            else:
+                                st.error("❌ Error sending message.")
     
     except Exception as e:
         st.error(f"Error: {str(e)}")
