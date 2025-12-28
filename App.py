@@ -343,7 +343,7 @@ def get_cached_users():
 
 # Ensure specific manager email exists and has manager role
 try:
-    _admin_email = 'aya@gmail.com'
+    _admin_email = 'aya@manager.com'
     existing = db.get_user_by_email(_admin_email)
     if existing:
         if existing.get('role') != 'manager':
@@ -597,7 +597,7 @@ elif page_matches(page, 'signup'):
             email = st.text_input(t('email') + " *", placeholder="you@example.com")
             password = st.text_input(t('password') + " *", type="password")
             confirm = st.text_input(t('confirm_password') + " *", type="password")
-            role_choice = st.selectbox(t('role') + " *", ["employee", "client", "manager"], index=0)
+            role_choice = st.selectbox(t('role') + " *", ["employee", "client"], index=0)
         
         with col2:
             st.subheader("Personal Information")
@@ -829,64 +829,68 @@ elif page == "➕ Add Data":
         
         if submitted:
             if employee_name and department and position and salary > 0 and email:
-                try:
-                    # Set password to '123' for employee record
-                    employee_password = '123'
-                    
-                    # Add record to company_records
-                    db.add_record(
-                        employee_name=employee_name,
-                        department=department,
-                        position=position,
-                        salary=salary,
-                        hire_date=str(hire_date),
-                        email=email,
-                        phone=phone,
-                        status=status,
-                        password=employee_password
-                    )
-                    
-                    # Create user account if requested
-                    if create_account:
-                        # Check if user already exists
-                        existing_user = db.get_user_by_email(email)
-                        if not existing_user:
-                            # Generate or use provided password
-                            if auto_password:
-                                generated_password = secrets.token_urlsafe(10)
-                                password_to_use = generated_password
-                            else:
-                                password_to_use = user_password if 'user_password' in locals() and user_password else secrets.token_urlsafe(10)
-                            
-                            # Create user account
-                            salt = _generate_salt()
-                            password_hash = _hash_password(password_to_use, salt)
-                            user_created = db.create_user(email, password_hash, salt, role=account_role)
-                            
-                            if user_created:
+                # Validate email format if creating account
+                if create_account and not email.endswith(f"@{account_role}.com"):
+                    st.error(f"❌ Email must be in format: name@{account_role}.com")
+                else:
+                    try:
+                        # Set password to '123' for employee record
+                        employee_password = '123'
+                        
+                        # Add record to company_records
+                        db.add_record(
+                            employee_name=employee_name,
+                            department=department,
+                            position=position,
+                            salary=salary,
+                            hire_date=str(hire_date),
+                            email=email,
+                            phone=phone,
+                            status=status,
+                            password=employee_password
+                        )
+                        
+                        # Create user account if requested
+                        if create_account:
+                            # Check if user already exists
+                            existing_user = db.get_user_by_email(email)
+                            if not existing_user:
+                                # Generate or use provided password
                                 if auto_password:
-                                    # Save credentials to file
-                                    cred_path = 'employee_credentials.txt'
-                                    try:
-                                        with open(cred_path, 'a', encoding='utf-8') as f:
-                                            f.write(f'\n--- New Employee Account ---\n')
-                                            f.write(f'Name: {employee_name}\n')
-                                            f.write(f'Email: {email}\n')
-                                            f.write(f'Password: {password_to_use}\n')
-                                            f.write(f'Role: {account_role}\n')
-                                            f.write(f'Created: {datetime.now()}\n')
-                                        st.info(f"📧 Login credentials saved to {cred_path}")
-                                    except Exception:
-                                        st.warning(f"Account created. Email: {email}, Password: {password_to_use}")
-                                st.success("✅ Record added and user account created successfully!")
+                                    generated_password = secrets.token_urlsafe(10)
+                                    password_to_use = generated_password
+                                else:
+                                    password_to_use = user_password if 'user_password' in locals() and user_password else secrets.token_urlsafe(10)
+                                
+                                # Create user account
+                                salt = _generate_salt()
+                                password_hash = _hash_password(password_to_use, salt)
+                                user_created = db.create_user(email, password_hash, salt, role=account_role)
+                                
+                                if user_created:
+                                    if auto_password:
+                                        # Save credentials to file
+                                        cred_path = 'employee_credentials.txt'
+                                        try:
+                                            with open(cred_path, 'a', encoding='utf-8') as f:
+                                                f.write(f'\n--- New Employee Account ---\n')
+                                                f.write(f'Name: {employee_name}\n')
+                                                f.write(f'Email: {email}\n')
+                                                f.write(f'Password: {password_to_use}\n')
+                                                f.write(f'Role: {account_role}\n')
+                                                f.write(f'Created: {datetime.now()}\n')
+                                            st.info(f"📧 Login credentials saved to {cred_path}")
+                                        except Exception:
+                                            st.warning(f"Account created. Email: {email}, Password: {password_to_use}")
+                                    st.success("✅ Record added and user account created successfully!")
+                                else:
+                                    st.warning("✅ Record added but failed to create user account (email might already exist)")
                             else:
-                                st.warning("✅ Record added but failed to create user account (email might already exist)")
+                                st.success("✅ Record added! User account already exists for this email.")
                         else:
-                            st.success("✅ Record added! User account already exists for this email.")
-                    else:
-                        st.success("✅ Record added successfully!")
-                except Exception as e:
-                    st.error(f"❌ Error: {str(e)}")
+                            st.success("✅ Record added successfully!")
+                    except Exception as e:
+                        st.error(f"❌ Error: {str(e)}")
             else:
                 st.error("⚠️ Please fill all required fields (*)")
 
