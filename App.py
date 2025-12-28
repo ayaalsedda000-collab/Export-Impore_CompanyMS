@@ -1780,8 +1780,19 @@ elif page_matches(page, 'add_shipment'):
         with col1:
             shipment_number = st.text_input(t('shipment_number') + " *", placeholder="SH-2025-001")
             shipment_type = st.selectbox("Type *", ["Import", "Export"])
-            origin_country = st.text_input(t('origin') + " *")
-            destination_country = st.text_input(t('destination') + " *")
+            
+            # Country dropdown list
+            countries = [
+                "Turkey", "United States", "United Kingdom", "Germany", "France", "Italy", "Spain",
+                "China", "Japan", "South Korea", "India", "UAE", "Saudi Arabia", "Egypt",
+                "Jordan", "Lebanon", "Iraq", "Syria", "Palestine", "Qatar", "Kuwait", "Bahrain",
+                "Oman", "Yemen", "Morocco", "Algeria", "Tunisia", "Libya", "Sudan",
+                "Canada", "Mexico", "Brazil", "Argentina", "Australia", "Russia", "Poland",
+                "Netherlands", "Belgium", "Switzerland", "Austria", "Sweden", "Norway", "Denmark"
+            ]
+            
+            origin_country = st.selectbox(t('origin') + " *", countries)
+            destination_country = st.selectbox(t('destination') + " *", countries)
             departure_date = st.date_input(t('departure_date') + " *", value=date.today())
         
         with col2:
