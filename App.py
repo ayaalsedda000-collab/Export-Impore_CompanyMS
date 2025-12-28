@@ -967,8 +967,6 @@ elif page == "📋 View Data":
             # Filter only existing columns
             display_cols = [col for col in client_cols if col in df_page.columns]
             df_display = df_page[display_cols]
-            
-            st.info("📋 **Client View**: Showing client-specific fields only (Name, Email, Phone, Status)")
         else:
             df_display = df_page
         
