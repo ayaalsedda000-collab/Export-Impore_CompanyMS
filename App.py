@@ -1781,14 +1781,14 @@ elif page_matches(page, 'add_shipment'):
             shipment_number = st.text_input(t('shipment_number') + " *", placeholder="SH-2025-001")
             shipment_type = st.selectbox("Type *", ["Import", "Export"])
             
-            # Country dropdown list
+            # Country dropdown list (alphabetically sorted)
             countries = [
-                "Turkey", "United States", "United Kingdom", "Germany", "France", "Italy", "Spain",
-                "China", "Japan", "South Korea", "India", "UAE", "Saudi Arabia", "Egypt",
-                "Jordan", "Lebanon", "Iraq", "Syria", "Palestine", "Qatar", "Kuwait", "Bahrain",
-                "Oman", "Yemen", "Morocco", "Algeria", "Tunisia", "Libya", "Sudan",
-                "Canada", "Mexico", "Brazil", "Argentina", "Australia", "Russia", "Poland",
-                "Netherlands", "Belgium", "Switzerland", "Austria", "Sweden", "Norway", "Denmark"
+                "Algeria", "Argentina", "Australia", "Austria", "Bahrain", "Belgium", "Brazil",
+                "Canada", "China", "Denmark", "Egypt", "France", "Germany", "India", "Iraq",
+                "Italy", "Japan", "Jordan", "Kuwait", "Lebanon", "Libya", "Mexico", "Morocco",
+                "Netherlands", "Norway", "Oman", "Palestine", "Poland", "Qatar", "Russia",
+                "Saudi Arabia", "South Korea", "Spain", "Sudan", "Sweden", "Switzerland", "Syria",
+                "Tunisia", "Turkey", "UAE", "United Kingdom", "United States", "Yemen"
             ]
             
             origin_country = st.selectbox(t('origin') + " *", countries)
