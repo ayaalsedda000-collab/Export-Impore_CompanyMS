@@ -1292,6 +1292,9 @@ elif page_matches(page, 'analytics'):
     df = get_cached_records()
     
     if not df.empty:
+        # Filter out clients from analytics (only show employees)
+        df_employees = df[df['role'].isin(['employee', 'manager'])] if 'role' in df.columns else df
+        
         tab1, tab2, tab3 = st.tabs(["📊 Distribution", "💰 Salaries", "📈 Trends"])
         
         with tab1:
@@ -1299,12 +1302,111 @@ elif page_matches(page, 'analytics'):
             col1, col2 = st.columns(2)
             with col1:
                 st.subheader("Employee Status")
-                fig3 = data_manager.create_status_pie_chart(df)
+                fig3 = data_manager.create_status_pie_chart(df_employees)
                 st.plotly_chart(fig3, use_container_width=True)
             with col2:
                 st.subheader("Common Positions")
-                fig4 = data_manager.create_position_chart(df)
+                fig4 = data_manager.create_position_chart(df_employees)
                 st.plotly_chart(fig4, use_container_width=True)
+        
+        with tab2:
+            st.subheader("Salary Analysis")
+            
+            # Salary statistics
+            col1, col2, col3, col4 = st.columns(4)
+            with col1:
+                avg_salary = df_employees['salary'].mean()
+                st.metric("Average Salary", f"${avg_salary:,.0f}")
+            with col2:
+                max_salary = df_employees['salary'].max()
+                st.metric("Highest Salary", f"${max_salary:,.0f}")
+            with col3:
+                min_salary = df_employees['salary'].min()
+                st.metric("Lowest Salary", f"${min_salary:,.0f}")
+            with col4:
+                total_payroll = df_employees['salary'].sum()
+                st.metric("Total Payroll", f"${total_payroll:,.0f}")
+            
+            st.markdown("---")
+            
+            # Salary charts
+            col1, col2 = st.columns(2)
+            with col1:
+                st.subheader("Average Salary by Department")
+                fig_salary = data_manager.create_salary_chart(df_employees)
+                st.plotly_chart(fig_salary, use_container_width=True)
+            
+            with col2:
+                st.subheader("Salary Distribution")
+                import plotly.express as px
+                fig_dist = px.histogram(
+                    df_employees, 
+                    x='salary', 
+                    nbins=20,
+                    title='Salary Distribution',
+                    labels={'salary': 'Salary ($)', 'count': 'Number of Employees'},
+                    color_discrete_sequence=['#2ecc71']
+                )
+                fig_dist.update_layout(
+                    xaxis_title="Salary ($)",
+                    yaxis_title="Number of Employees",
+                    showlegend=False
+                )
+                st.plotly_chart(fig_dist, use_container_width=True)
+        
+        with tab3:
+            st.subheader("Employee Trends")
+            
+            # Overall statistics
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                total_emp = len(df_employees)
+                st.metric("Total Employees", total_emp)
+            with col2:
+                active_emp = len(df_employees[df_employees['status'] == 'Active'])
+                st.metric("Active Employees", active_emp)
+            with col3:
+                departments = df_employees['department'].nunique()
+                st.metric("Departments", departments)
+            
+            st.markdown("---")
+            
+            # Hiring trends by date
+            if 'created_at' in df_employees.columns:
+                st.subheader("Hiring Timeline")
+                df_employees['created_date'] = pd.to_datetime(df_employees['created_at']).dt.date
+                hiring_trend = df_employees.groupby('created_date').size().reset_index(name='count')
+                hiring_trend = hiring_trend.sort_values('created_date')
+                
+                import plotly.express as px
+                fig_trend = px.line(
+                    hiring_trend, 
+                    x='created_date', 
+                    y='count',
+                    title='Employees Added Over Time',
+                    labels={'created_date': 'Date', 'count': 'Number of Employees Added'},
+                    markers=True
+                )
+                fig_trend.update_layout(
+                    xaxis_title="Date",
+                    yaxis_title="Employees Added",
+                    showlegend=False
+                )
+                st.plotly_chart(fig_trend, use_container_width=True)
+            
+            # Department breakdown
+            col1, col2 = st.columns(2)
+            with col1:
+                st.subheader("Department Sizes")
+                dept_counts = df_employees['department'].value_counts().reset_index()
+                dept_counts.columns = ['Department', 'Count']
+                st.dataframe(dept_counts, use_container_width=True, hide_index=True)
+            
+            with col2:
+                st.subheader("Status Breakdown")
+                status_counts = df_employees['status'].value_counts().reset_index()
+                status_counts.columns = ['Status', 'Count']
+                st.dataframe(status_counts, use_container_width=True, hide_index=True)
     else:
         st.warning("No data available for charts")
 
