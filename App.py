@@ -942,8 +942,6 @@ elif page == "📋 View Data":
             if st.button("⬅️ Previous", disabled=st.session_state.page_num == 0):
                 st.session_state.page_num -= 1
                 st.rerun()
-        with col_p2:
-            st.write(f"Page {st.session_state.page_num + 1} of {total_pages} ({total_rows} records)")
         with col_p3:
             if st.button("Next ➡️", disabled=st.session_state.page_num >= total_pages - 1):
                 st.session_state.page_num += 1
