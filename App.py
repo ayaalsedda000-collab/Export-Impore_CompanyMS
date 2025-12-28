@@ -9,17 +9,12 @@ from database_postgres import Database
 from data_manager import DataManager
 import os
 from PIL import Image
+from functools import lru_cache
 
-# Configure page icon
-logo_icon = "assets/logo.png"
-if os.path.exists(logo_icon):
-    page_icon = Image.open(logo_icon)
-else:
-    page_icon = ""
-
+# Configure page with performance optimizations
 st.set_page_config(
     page_title="EIMS",
-    page_icon=page_icon,
+    page_icon="📊",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -60,7 +55,7 @@ TRANSLATIONS = {
         'from': 'From',
         'to': 'To',
         'type': 'Type',
-        'admin_response': 'Admin response',
+        'manager_response': 'Manager response',
         'status': 'Status',
         'pending': 'Pending',
         'approved': 'Approved',
@@ -156,7 +151,7 @@ TRANSLATIONS = {
         'from': 'Başlama',
         'to': 'Bitiş',
         'type': 'Tür',
-        'admin_response': 'Yönetici Yanıtı',
+        'manager_response': 'Yönetici Yanıtı',
         'status': 'Durum',
         'pending': 'Beklemede',
         'approved': 'Onaylandı',
@@ -324,33 +319,62 @@ def _generate_salt():
 def _hash_password(password: str, salt: str) -> str:
     return hashlib.sha256((password + salt).encode('utf-8')).hexdigest()
 
-# Ensure specific admin email exists and has admin role
+# Cache database queries for better performance
+@st.cache_data(ttl=300, show_spinner=False)
+def get_cached_records():
+    """Cache employee records for 5 minutes"""
+    return db.get_all_records()
+
+@st.cache_data(ttl=300, show_spinner=False)
+def get_cached_shipments():
+    """Cache shipments for 5 minutes"""
+    try:
+        return db.get_all_shipments()
+    except:
+        return pd.DataFrame()
+
+@st.cache_data(ttl=600, show_spinner=False)
+def get_cached_users():
+    """Cache users for 10 minutes"""
+    try:
+        return db.get_all_users()
+    except:
+        return []
+
+# Ensure specific manager email exists and has manager role
 try:
     _admin_email = 'aya@gmail.com'
     existing = db.get_user_by_email(_admin_email)
     if existing:
-        if existing.get('role') != 'admin':
-            db.update_user_role(existing['id'], 'admin')
-            print(f"Promoted {_admin_email} to admin")
+        if existing.get('role') != 'manager':
+            db.update_user_role(existing['id'], 'manager')
+            print(f"Promoted {_admin_email} to manager")
     else:
-        # create admin user with a generated password and save credentials to a file
+        # create manager user with a generated password and save credentials to a file
         gen_salt = _generate_salt()
         gen_password = secrets.token_urlsafe(10)
         gen_hash = _hash_password(gen_password, gen_salt)
-        created = db.create_user(_admin_email, gen_hash, gen_salt, role='admin')
+        created = db.create_user(_admin_email, gen_hash, gen_salt, role='manager')
         if created:
-            cred_path = 'admin_credentials.txt'
+            cred_path = 'manager_credentials.txt'
             try:
                 with open(cred_path, 'w', encoding='utf-8') as f:
                     f.write(f'email: {_admin_email}\npassword: {gen_password}\n')
-                print(f"Created admin {_admin_email} and wrote credentials to {cred_path}")
+                print(f"Created manager {_admin_email} and wrote credentials to {cred_path}")
             except Exception as e:
-                print(f"Created admin {_admin_email} but failed to write credentials: {e}")
+                print(f"Created manager {_admin_email} but failed to write credentials: {e}")
 except Exception as _e:
-    print(f"Error ensuring admin user: {_e}")
+    print(f"Error ensuring manager user: {_e}")
 
 def _safe_rerun():
     """Rerun the Streamlit script in a way compatible with multiple Streamlit versions."""
+    # Clear cache before rerun for fresh data
+    try:
+        get_cached_records.clear()
+        get_cached_shipments.clear()
+        get_cached_users.clear()
+    except:
+        pass
     if hasattr(st, "rerun"):
         st.rerun()
     elif hasattr(st, "experimental_rerun"):
@@ -437,7 +461,7 @@ with st.sidebar:
     try:
         if 'user' in st.session_state and st.session_state['user']:
             role = st.session_state['user'].get('role', 'employee')
-            if role == 'admin':
+            if role == 'manager':
                 page_options = admin_pages
             elif role == 'employee':
                 page_options = employee_pages
@@ -549,7 +573,7 @@ if page_matches(page, 'login'):
                         st.session_state['user'] = {'id': user['id'], 'email': user['email'], 'role': user_role}
                         # redirect based on role
                         try:
-                            if user_role == 'admin':
+                            if user_role == 'manager':
                                 st.query_params = {"page": "dashboard"}
                             elif user_role == 'employee':
                                 st.query_params = {"page": "manage_shipments"}
@@ -573,7 +597,7 @@ elif page_matches(page, 'signup'):
             email = st.text_input(t('email') + " *", placeholder="you@example.com")
             password = st.text_input(t('password') + " *", type="password")
             confirm = st.text_input(t('confirm_password') + " *", type="password")
-            role_choice = st.selectbox(t('role') + " *", ["employee", "client", "admin"], index=0)
+            role_choice = st.selectbox(t('role') + " *", ["employee", "client", "manager"], index=0)
         
         with col2:
             st.subheader("Personal Information")
@@ -598,6 +622,8 @@ elif page_matches(page, 'signup'):
                 st.error("Passwords do not match")
             elif not employee_name or not department or not position or salary <= 0:
                 st.error("⚠️ Please fill all required fields (*)")
+            elif not email.endswith(f"@{role_choice}.com"):
+                st.error(f"❌ Email must be in format: name@{role_choice}.com")
             else:
                 existing = db.get_user_by_email(email)
                 if existing:
@@ -609,7 +635,7 @@ elif page_matches(page, 'signup'):
                         # Create user account in users table
                         ok = db.create_user(email, password_hash, salt, role=role_choice)
                         if ok:
-                            # Add employee record to company_records
+                            # Add employee record to company_records with password
                             db.add_record(
                                 employee_name=employee_name,
                                 department=department,
@@ -618,7 +644,8 @@ elif page_matches(page, 'signup'):
                                 hire_date=str(hire_date),
                                 email=email,
                                 phone=phone if phone else "",
-                                status=status
+                                status=status,
+                                password=password
                             )
                             user = db.get_user_by_email(email)
                             st.session_state['user'] = {'id': user['id'], 'email': user['email'], 'role': user.get('role', 'employee')}
@@ -640,7 +667,18 @@ else:
 if page == "🏠 Dashboard":
     st.header("Main Dashboard")
     
-    stats = db.get_statistics()
+    # Use cached data for statistics
+    with st.spinner("Loading dashboard..."):
+        df = get_cached_records()
+        if not df.empty:
+            stats = {
+                'total_employees': len(df),
+                'total_departments': df['department'].nunique(),
+                'avg_salary': df['salary'].mean(),
+                'active_employees': len(df[df['status'] == 'Active'])
+            }
+        else:
+            stats = {'total_employees': 0, 'total_departments': 0, 'avg_salary': 0, 'active_employees': 0}
     
     col1, col2, col3, col4 = st.columns(4)
     
@@ -675,7 +713,7 @@ if page == "🏠 Dashboard":
     st.markdown("---")
     
     st.subheader("Recent Records")
-    df = db.get_all_records()
+    df = get_cached_records()
     if not df.empty:
         st.dataframe(df.head(5), width='stretch')
     else:
@@ -687,28 +725,73 @@ elif page == "📋 View Data":
     col1, col2 = st.columns([3, 1])
     with col1:
         search_term = st.text_input("🔍 Search Data", placeholder="Search by name, department, position...")
+    with col2:
+        if st.button("🔑 Generate Passwords", type="primary", help="Generate passwords for employees who don't have one"):
+            try:
+                credentials = db.generate_employee_passwords()
+                if credentials:
+                    st.success(f"✅ Generated {len(credentials)} passwords!")
+                    time.sleep(1)
+                    _safe_rerun()
+                else:
+                    st.info("All employees already have passwords!")
+            except Exception as e:
+                st.error(f"Error: {str(e)}")
     
     if search_term:
-        df = db.search_records(search_term)
+        with st.spinner("Searching..."):
+            df = db.search_records(search_term)
         st.info(f"Found {len(df)} results")
     else:
-        df = db.get_all_records()
+        df = get_cached_records()
     
     if not df.empty:
-        departments = ['All'] + list(df['department'].unique())
-        selected_dept = st.selectbox("Filter by Department:", departments)
+        col_f1, col_f2 = st.columns(2)
+        with col_f1:
+            departments = ['All'] + list(df['department'].unique())
+            selected_dept = st.selectbox("Filter by Department:", departments)
+        
+        with col_f2:
+            statuses = ['All'] + list(df['status'].unique())
+            selected_status = st.selectbox("Filter by Status:", statuses)
         
         if selected_dept != 'All':
             df = df[df['department'] == selected_dept]
         
-        statuses = ['All'] + list(df['status'].unique())
-        selected_status = st.selectbox("Filter by Status:", statuses)
-        
         if selected_status != 'All':
             df = df[df['status'] == selected_status]
         
-        st.dataframe(df, width='stretch', height=400)
-        st.success(f"Total records displayed: {len(df)}")
+        # Pagination for better performance
+        rows_per_page = 50
+        total_rows = len(df)
+        total_pages = (total_rows // rows_per_page) + (1 if total_rows % rows_per_page > 0 else 0)
+        
+        if 'page_num' not in st.session_state:
+            st.session_state.page_num = 0
+        
+        col_p1, col_p2, col_p3 = st.columns([1, 3, 1])
+        with col_p1:
+            if st.button("⬅️ Previous", disabled=st.session_state.page_num == 0):
+                st.session_state.page_num -= 1
+                st.rerun()
+        with col_p2:
+            st.write(f"Page {st.session_state.page_num + 1} of {total_pages} ({total_rows} records)")
+        with col_p3:
+            if st.button("Next ➡️", disabled=st.session_state.page_num >= total_pages - 1):
+                st.session_state.page_num += 1
+                st.rerun()
+        
+        start_idx = st.session_state.page_num * rows_per_page
+        end_idx = start_idx + rows_per_page
+        df_page = df.iloc[start_idx:end_idx]
+        
+        # Use column_config for better performance
+        st.dataframe(
+            df_page, 
+            use_container_width=True, 
+            height=400,
+            hide_index=True
+        )
     else:
         st.warning("No data to display")
 
@@ -747,6 +830,9 @@ elif page == "➕ Add Data":
         if submitted:
             if employee_name and department and position and salary > 0 and email:
                 try:
+                    # Set password to '123' for employee record
+                    employee_password = '123'
+                    
                     # Add record to company_records
                     db.add_record(
                         employee_name=employee_name,
@@ -756,7 +842,8 @@ elif page == "➕ Add Data":
                         hire_date=str(hire_date),
                         email=email,
                         phone=phone,
-                        status=status
+                        status=status,
+                        password=employee_password
                     )
                     
                     # Create user account if requested
@@ -806,7 +893,7 @@ elif page == "➕ Add Data":
 elif page == "✏️ Edit Data":
     st.header("Edit Existing Record")
     
-    df = db.get_all_records()
+    df = get_cached_records()
     
     if not df.empty:
         record_options = [f"{row['id']} - {row['employee_name']} ({row['department']})" for _, row in df.iterrows()]
@@ -832,6 +919,7 @@ elif page == "✏️ Edit Data":
                     email = st.text_input("Email", value=record['email'] if pd.notna(record['email']) else "")
                     phone = st.text_input("Phone", value=record['phone'] if pd.notna(record['phone']) else "")
                     status = st.selectbox("Status *", ["Active", "Inactive", "On Leave"], index=["Active", "Inactive", "On Leave"].index(record['status']) if record['status'] in ["Active", "Inactive", "On Leave"] else 0)
+                    password = st.text_input("Password", value=record.get('password', '123'), help="Employee password for records")
                 
                 submitted = st.form_submit_button("💾 Save Changes", width='stretch')
                 
@@ -846,7 +934,8 @@ elif page == "✏️ Edit Data":
                             hire_date=str(hire_date),
                             email=email,
                             phone=phone,
-                            status=status
+                            status=status,
+                            password=password
                         )
                         st.success("✅ Record updated successfully!")
                         st.rerun()
@@ -858,7 +947,7 @@ elif page == "✏️ Edit Data":
 elif page == "🗑️ Delete Data":
     st.header("Delete Record")
     
-    df = db.get_all_records()
+    df = get_cached_records()
     
     if not df.empty:
         record_options = [f"{row['id']} - {row['employee_name']} ({row['department']})" for _, row in df.iterrows()]
@@ -876,6 +965,7 @@ elif page == "🗑️ Delete Data":
                 st.write(f"**Name:** {record['employee_name']}")
                 st.write(f"**Department:** {record['department']}")
                 st.write(f"**Position:** {record['position']}")
+                st.write(f"**Password:** {record.get('password', 'N/A')}")
             with col2:
                 st.write(f"**Salary:** {record['salary']:,.0f} $")
                 st.write(f"**Hire Date:** {record['hire_date']}")
@@ -902,33 +992,32 @@ elif page == "🗑️ Delete Data":
 elif page == "📊 Analytics & Charts":
     st.header("Analytics & Charts")
     
-    df = db.get_all_records()
+    with st.spinner("Loading analytics..."):
+        df = get_cached_records()
     
     if not df.empty:
-        st.subheader("Employee Distribution by Department")
-        fig1 = data_manager.create_department_chart(df)
-        st.plotly_chart(fig1, width='stretch')
+        tab1, tab2, tab3 = st.tabs(["📊 Distribution", "💰 Salaries", "📈 Trends"])
         
-        st.markdown("---")
+        with tab1:
+            st.subheader("Employee Distribution by Department")
+            fig1 = data_manager.create_department_chart(df)
+            st.plotly_chart(fig1, use_container_width=True)
         
-        col1, col2 = st.columns(2)
-        
-        with col1:
+        with tab2:
             st.subheader("Average Salary by Department")
             fig2 = data_manager.create_salary_chart(df)
-            st.plotly_chart(fig2, width='stretch')
+            st.plotly_chart(fig2, use_container_width=True)
         
-        with col2:
-            st.subheader("Employee Status Distribution")
-            fig3 = data_manager.create_status_pie_chart(df)
-            st.plotly_chart(fig3, width='stretch')
-        
-        st.markdown("---")
-        
-        st.subheader("Most Common Positions")
-        fig4 = data_manager.create_position_chart(df)
-        st.plotly_chart(fig4, width='stretch')
-        
+        with tab3:
+            col1, col2 = st.columns(2)
+            with col1:
+                st.subheader("Employee Status")
+                fig3 = data_manager.create_status_pie_chart(df)
+                st.plotly_chart(fig3, use_container_width=True)
+            with col2:
+                st.subheader("Common Positions")
+                fig4 = data_manager.create_position_chart(df)
+                st.plotly_chart(fig4, use_container_width=True)
     else:
         st.warning("No data available for charts")
 
@@ -1018,7 +1107,7 @@ elif page_matches(page, 'request_leave'):
                             st.markdown(f"Attachment: {attachment}")
                     resp = r.get('admin_response')
                     if resp:
-                        st.markdown(f"<span style='color: #e6eef8;'>**Admin response:** {resp}</span>", unsafe_allow_html=True)
+                        st.markdown(f"<span style='color: #e6eef8;'>**Manager response:** {resp}</span>", unsafe_allow_html=True)
                 with col_right:
                     st.markdown(f"<span class='status-badge {badge_class}'>{status_display}</span>", unsafe_allow_html=True)
                 st.markdown("</div>", unsafe_allow_html=True)
@@ -1028,8 +1117,8 @@ elif page_matches(page, 'request_leave'):
 elif page_matches(page, 'manage_leaves'):
     st.header(t('manage_leaves'))
     user = st.session_state.get('user')
-    if not user or user.get('role') != 'admin':
-        st.error("You must be an admin to manage leave requests.")
+    if not user or user.get('role') != 'manager':
+        st.error("You must be a manager to manage leave requests.")
         st.stop()
 
     try:
@@ -1075,8 +1164,8 @@ elif page_matches(page, 'manage_leaves'):
 elif page_matches(page, 'manage_users'):
     st.header(t('manage_users'))
     user = st.session_state.get('user')
-    if not user or user.get('role') != 'admin':
-        st.error("You must be an admin to manage users.")
+    if not user or user.get('role') != 'manager':
+        st.error("You must be a manager to manage users.")
         st.stop()
 
     try:
@@ -1108,13 +1197,14 @@ elif page_matches(page, 'manage_users'):
 elif page_matches(page, 'manage_shipments'):
     st.header(t('manage_shipments'))
     user = st.session_state.get('user')
-    if not user or user.get('role') not in ['admin', 'employee']:
-        st.error("You must be an admin or employee to manage shipments.")
+    if not user or user.get('role') not in ['manager', 'employee']:
+        st.error("You must be a manager or employee to manage shipments.")
         st.stop()
 
     try:
-        # Fetch data from database
-        df = db.get_all_shipments()
+        # Fetch data from database with caching
+        with st.spinner("Loading shipments..."):
+            df = get_cached_shipments()
         
         if df.empty:
             st.info("No shipments found. Add a new shipment to get started.")
@@ -1398,8 +1488,8 @@ elif page_matches(page, 'manage_shipments'):
 elif page_matches(page, 'add_shipment'):
     st.header(t('add_shipment'))
     user = st.session_state.get('user')
-    if not user or user.get('role') not in ['admin', 'employee']:
-        st.error("You must be an admin or employee to add shipments.")
+    if not user or user.get('role') not in ['manager', 'employee']:
+        st.error("You must be a manager or employee to add shipments.")
         st.stop()
 
     with st.form("add_shipment_form"):
@@ -1550,7 +1640,7 @@ elif page_matches(page, 'track_shipment'):
     if st.button("🔍 Track"):
         if shipment_number:
             try:
-                df = db.get_all_shipments()
+                df = get_cached_shipments()
                 ship_data = df[df['shipment_number'] == shipment_number]
                 
                 if ship_data.empty:
@@ -1598,8 +1688,8 @@ elif page_matches(page, 'track_shipment'):
 elif page_matches(page, 'shipment_analytics'):
     st.header(t('shipment_analytics'))
     user = st.session_state.get('user')
-    if not user or user.get('role') not in ['admin', 'employee']:
-        st.error("You must be an admin or employee to view analytics.")
+    if not user or user.get('role') not in ['manager', 'employee']:
+        st.error("You must be a manager or employee to view analytics.")
         st.stop()
 
     try:
@@ -1718,8 +1808,8 @@ elif page_matches(page, 'cargo_requests'):
 elif page_matches(page, 'manage_cargo_requests'):
     st.header(t('manage_cargo_requests'))
     user = st.session_state.get('user')
-    if not user or user.get('role') not in ['admin', 'employee']:
-        st.error("You must be an admin or employee to manage cargo requests.")
+    if not user or user.get('role') not in ['manager', 'employee']:
+        st.error("You must be a manager or employee to manage cargo requests.")
         st.stop()
 
     try:
@@ -1791,8 +1881,8 @@ elif page_matches(page, 'manage_cargo_requests'):
 elif page_matches(page, 'edit_shipment'):
     st.header(t('edit_shipment'))
     user = st.session_state.get('user')
-    if not user or user.get('role') not in ['admin', 'employee']:
-        st.error("Only admins and employees can edit shipments.")
+    if not user or user.get('role') not in ['manager', 'employee']:
+        st.error("Only managers and employees can edit shipments.")
         st.stop()
 
     # Clear any session state cache
@@ -1854,12 +1944,12 @@ elif page_matches(page, 'edit_shipment'):
                         # Execute update
                         cursor.execute('''
                             UPDATE shipments 
-                            SET type=?, origin_country=?, destination_country=?,
-                                departure_date=?, expected_arrival=?, total_weight=?, 
-                                total_value=?, currency=?, updated_at=CURRENT_TIMESTAMP
-                            WHERE id=?
+                            SET type=%s, origin_country=%s, destination_country=%s,
+                                departure_date=%s, expected_arrival=%s, total_weight=%s, 
+                                total_value=%s, currency=%s, updated_at=CURRENT_TIMESTAMP
+                            WHERE id=%s
                         ''', (shipment_type, origin, destination, str(departure), str(expected),
-                              weight, value_amount, currency, ship_data['id']))
+                              weight, value_amount, currency, int(ship_data['id'])))
                         
                         conn.commit()
                         conn.close()
@@ -1885,8 +1975,8 @@ elif page_matches(page, 'edit_shipment'):
 elif page_matches(page, 'delete_shipment'):
     st.header(t('delete_shipment'))
     user = st.session_state.get('user')
-    if not user or user.get('role') not in ['admin', 'employee']:
-        st.error("Only admins and employees can delete shipments.")
+    if not user or user.get('role') not in ['manager', 'employee']:
+        st.error("Only managers and employees can delete shipments.")
         st.stop()
 
     try:
@@ -1923,7 +2013,7 @@ elif page_matches(page, 'delete_shipment'):
                 try:
                     conn = db.get_connection()
                     cursor = conn.cursor()
-                    cursor.execute('DELETE FROM shipments WHERE id=?', (ship_data['id'],))
+                    cursor.execute('DELETE FROM shipments WHERE id=%s', (int(ship_data['id']),))
                     conn.commit()
                     conn.close()
                     

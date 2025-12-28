@@ -67,9 +67,21 @@ class Database:
                 email TEXT,
                 phone TEXT,
                 status TEXT DEFAULT 'Active',
+                password TEXT DEFAULT '',
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         ''')
+        
+        # Add password column if it doesn't exist
+        cursor.execute("""
+            DO $$ 
+            BEGIN
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                              WHERE table_name='company_records' AND column_name='password') THEN
+                    ALTER TABLE company_records ADD COLUMN password TEXT DEFAULT '';
+                END IF;
+            END $$;
+        """)
         
         cursor.execute("SELECT COUNT(*) FROM company_records")
         if cursor.fetchone()[0] == 0:
@@ -200,26 +212,55 @@ class Database:
             Database._engine
         )
     
-    def add_record(self, employee_name, department, position, salary, hire_date, email, phone, status):
+    def add_record(self, employee_name, department, position, salary, hire_date, email, phone, status, password=''):
         conn = self.get_connection()
         cursor = conn.cursor()
         cursor.execute('''
-            INSERT INTO company_records (employee_name, department, position, salary, hire_date, email, phone, status)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-        ''', (employee_name, department, position, salary, hire_date, email, phone, status))
+            INSERT INTO company_records (employee_name, department, position, salary, hire_date, email, phone, status, password)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+        ''', (employee_name, department, position, salary, hire_date, email, phone, status, password))
         conn.commit()
         conn.close()
     
-    def update_record(self, record_id, employee_name, department, position, salary, hire_date, email, phone, status):
+    def update_record(self, record_id, employee_name, department, position, salary, hire_date, email, phone, status, password=None):
         conn = self.get_connection()
         cursor = conn.cursor()
-        cursor.execute('''
-            UPDATE company_records 
-            SET employee_name=%s, department=%s, position=%s, salary=%s, hire_date=%s, email=%s, phone=%s, status=%s
-            WHERE id=%s
-        ''', (employee_name, department, position, salary, hire_date, email, phone, status, record_id))
+        if password is not None:
+            cursor.execute('''
+                UPDATE company_records 
+                SET employee_name=%s, department=%s, position=%s, salary=%s, hire_date=%s, email=%s, phone=%s, status=%s, password=%s
+                WHERE id=%s
+            ''', (employee_name, department, position, salary, hire_date, email, phone, status, password, record_id))
+        else:
+            cursor.execute('''
+                UPDATE company_records 
+                SET employee_name=%s, department=%s, position=%s, salary=%s, hire_date=%s, email=%s, phone=%s, status=%s
+                WHERE id=%s
+            ''', (employee_name, department, position, salary, hire_date, email, phone, status, record_id))
         conn.commit()
         conn.close()
+    
+    def generate_employee_passwords(self):
+        """Generate passwords for employees who don't have one - sets password to '123'"""
+        conn = self.get_connection()
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        cursor.execute("SELECT id, employee_name, email FROM company_records WHERE password IS NULL OR password = ''")
+        employees = cursor.fetchall()
+        
+        credentials = []
+        for emp in employees:
+            password = '123'
+            cursor.execute("UPDATE company_records SET password=%s WHERE id=%s", (password, emp['id']))
+            credentials.append({
+                'id': emp['id'],
+                'name': emp['employee_name'],
+                'email': emp['email'],
+                'password': password
+            })
+        
+        conn.commit()
+        conn.close()
+        return credentials
     
     def delete_record(self, record_id):
         try:
