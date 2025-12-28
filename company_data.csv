@@ -1,0 +1,4 @@
+﻿id,employee_name,department,position,salary,hire_date,email,phone,status,created_at
+8,ahmed,Finance,counter,1000.0,2025-12-10,ahmed@company.com,0558838737,Active,2025-12-10 10:37:51
+7,ana,Finance,counter,2300.0,2024-08-14,ana@company.com,0558838737,Active,2025-12-04 17:51:56
+6,mia,Administration,Administration,1500.0,2024-12-03,mia@company.com,059478937,Active,2025-12-03 02:47:30

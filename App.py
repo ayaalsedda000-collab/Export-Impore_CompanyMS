@@ -319,13 +319,13 @@ def _generate_salt():
 def _hash_password(password: str, salt: str) -> str:
     return hashlib.sha256((password + salt).encode('utf-8')).hexdigest()
 
-# Cache database queries for better performance
-@st.cache_data(ttl=300, show_spinner=False)
+# Cache database queries for better performance with longer TTL
+@st.cache_data(ttl=300, show_spinner=False, max_entries=20)
 def get_cached_records():
     """Cache employee records for 5 minutes"""
     return db.get_all_records()
 
-@st.cache_data(ttl=300, show_spinner=False)
+@st.cache_data(ttl=300, show_spinner=False, max_entries=20)
 def get_cached_shipments():
     """Cache shipments for 5 minutes"""
     try:
@@ -333,7 +333,7 @@ def get_cached_shipments():
     except:
         return pd.DataFrame()
 
-@st.cache_data(ttl=600, show_spinner=False)
+@st.cache_data(ttl=600, show_spinner=False, max_entries=10)
 def get_cached_users():
     """Cache users for 10 minutes"""
     try:
@@ -341,9 +341,14 @@ def get_cached_users():
     except:
         return []
 
+@st.cache_resource(show_spinner=False)
+def get_db_connection():
+    """Cache database connection"""
+    return Database()
+
 # Ensure specific manager email exists and has manager role
 try:
-    _admin_email = 'aya@manager.com'
+    _admin_email = 'aya@gmail.com'
     existing = db.get_user_by_email(_admin_email)
     if existing:
         if existing.get('role') != 'manager':
@@ -555,7 +560,7 @@ with st.sidebar:
 if page_matches(page, 'login'):
     st.header(t('login'))
     with st.form("login_form"):
-        email = st.text_input(t('email'), placeholder="you@example.com")
+        email = st.text_input(t('email'), placeholder="name@role.com")
         password = st.text_input(t('password'), type="password")
         submitted = st.form_submit_button(t('login_button'))
         if submitted:
@@ -588,72 +593,229 @@ if page_matches(page, 'login'):
                         st.error("Incorrect password")
 
 elif page_matches(page, 'signup'):
-    st.header(t('signup'))
-    with st.form("signup_form"):
-        col1, col2 = st.columns(2)
+    # Check if user has selected account type
+    if 'signup_type' not in st.session_state:
+        # Show account type selection page
+        st.markdown("<h1 style='text-align: center; color: #1E88E5; margin-bottom: 10px;'>🎯 Create New Account</h1>", unsafe_allow_html=True)
+        st.markdown("<p style='text-align: center; color: #888; font-size: 18px; margin-bottom: 40px;'>Choose the type of account you want to register</p>", unsafe_allow_html=True)
         
-        with col1:
-            st.subheader("Account Information")
-            email = st.text_input(t('email') + " *", placeholder="you@example.com")
-            password = st.text_input(t('password') + " *", type="password")
-            confirm = st.text_input(t('confirm_password') + " *", type="password")
-            role_choice = st.selectbox(t('role') + " *", ["employee", "client"], index=0)
+        # Add spacing
+        st.markdown("<br>", unsafe_allow_html=True)
         
-        with col2:
-            st.subheader("Personal Information")
-            employee_name = st.text_input("Full Name *", placeholder="Enter full name")
-            phone = st.text_input("Phone", placeholder="05xxxxxxxx")
-            department = st.selectbox("Department *", ["IT", "HR", "Sales", "Marketing", "Finance", "Administration", "Customer Service", "Logistics"])
-            position = st.text_input("Position *", placeholder="Enter job title")
+        col_space1, col_main, col_space2 = st.columns([0.8, 2.4, 0.8])
         
-        col3, col4 = st.columns(2)
-        with col3:
-            salary = st.number_input("Salary ($) *", min_value=0.0, step=100.0, format="%.2f", value=1000.0)
-            hire_date = st.date_input("Hire Date *", value=date.today())
-        with col4:
-            status = st.selectbox("Status *", ["Active", "Inactive", "On Leave"], index=0)
+        with col_main:
+            col_btn1, col_space, col_btn2 = st.columns([1, 0.15, 1])
+            
+            with col_btn1:
+                # Employee button as large card
+                employee_clicked = st.button(
+                    label="👨‍💼\n\nEmployee Account",
+                    key="btn_employee",
+                    use_container_width=True,
+                    help="Register as an employee with complete access"
+                )
+                if employee_clicked:
+                    st.session_state['signup_type'] = 'employee'
+                    st.rerun()
+                
+                # Custom CSS for employee button - square and larger
+                st.markdown("""
+                    <style>
+                    button[kind="secondary"]:has(div:first-child:contains("👨‍💼")) {
+                        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+                        border: none !important;
+                        padding: 80px 50px !important;
+                        min-height: 420px !important;
+                        aspect-ratio: 1 / 1 !important;
+                        border-radius: 25px !important;
+                        box-shadow: 0 12px 30px rgba(102, 126, 234, 0.5) !important;
+                        transition: all 0.3s ease !important;
+                        color: white !important;
+                        font-size: 36px !important;
+                        font-weight: bold !important;
+                        line-height: 1.8 !important;
+                    }
+                    button[kind="secondary"]:has(div:first-child:contains("👨‍💼")):hover {
+                        transform: translateY(-10px) scale(1.02) !important;
+                        box-shadow: 0 18px 50px rgba(102, 126, 234, 0.8) !important;
+                    }
+                    </style>
+                """, unsafe_allow_html=True)
+            
+            with col_btn2:
+                # Client button as large card
+                client_clicked = st.button(
+                    label="👤\n\nClient Account",
+                    key="btn_client",
+                    use_container_width=True,
+                    help="Register as a client with basic access"
+                )
+                if client_clicked:
+                    st.session_state['signup_type'] = 'client'
+                    st.rerun()
+                
+                # Custom CSS for client button - square and larger
+                st.markdown("""
+                    <style>
+                    button[kind="secondary"]:has(div:first-child:contains("👤")) {
+                        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%) !important;
+                        border: none !important;
+                        padding: 80px 50px !important;
+                        min-height: 420px !important;
+                        aspect-ratio: 1 / 1 !important;
+                        border-radius: 25px !important;
+                        box-shadow: 0 12px 30px rgba(240, 147, 251, 0.5) !important;
+                        transition: all 0.3s ease !important;
+                        color: white !important;
+                        font-size: 36px !important;
+                        font-weight: bold !important;
+                        line-height: 1.8 !important;
+                    }
+                    button[kind="secondary"]:has(div:first-child:contains("👤")):hover {
+                        transform: translateY(-10px) scale(1.02) !important;
+                        box-shadow: 0 18px 50px rgba(240, 147, 251, 0.8) !important;
+                    }
+                        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%) !important;
+                        border: none !important;
+                        padding: 60px 40px !important;
+                        min-height: 350px !important;
+                        border-radius: 20px !important;
+                        box-shadow: 0 10px 25px rgba(240, 147, 251, 0.5) !important;
+                        transition: all 0.3s ease !important;
+                        color: white !important;
+                        font-size: 32px !important;
+                        font-weight: bold !important;
+                        line-height: 1.8 !important;
+                    }
+                    button[kind="secondary"]:has(div:first-child:contains("👤")):hover {
+                        transform: translateY(-8px) !important;
+                        box-shadow: 0 15px 40px rgba(240, 147, 251, 0.7) !important;
+                    }
+                    </style>
+                """, unsafe_allow_html=True)
         
-        submitted = st.form_submit_button(t('create_account'), width='stretch')
+        st.markdown("<br><br>", unsafe_allow_html=True)
+        st.markdown("---")
         
-        if submitted:
-            if not email or not password:
-                st.error("Please provide email and password")
-            elif password != confirm:
-                st.error("Passwords do not match")
-            elif not employee_name or not department or not position or salary <= 0:
-                st.error("⚠️ Please fill all required fields (*)")
-            elif not email.endswith(f"@{role_choice}.com"):
-                st.error(f"❌ Email must be in format: name@{role_choice}.com")
-            else:
-                existing = db.get_user_by_email(email)
-                if existing:
-                    st.error("An account with this email already exists. Please log in.")
+        col_back1, col_back2, col_back3 = st.columns([1, 1, 1])
+        with col_back2:
+            if st.button("← Back to Login", use_container_width=True, key="back_to_login"):
+                st.query_params = {"page": "login"}
+                st.rerun()
+    
+    else:
+        # Show registration form based on selected type
+        role_choice = st.session_state['signup_type']
+        
+        # Header with back button
+        col_back, col_title = st.columns([1, 4])
+        with col_back:
+            if st.button("⬅ Change", key="change_type", help="Change account type"):
+                del st.session_state['signup_type']
+                st.rerun()
+        
+        with col_title:
+            icon = "👨‍💼" if role_choice == "employee" else "👤"
+            account_type = "Employee" if role_choice == "employee" else "Client"
+            st.markdown(f"<h2 style='text-align: center; color: #1E88E5;'>{icon} {account_type} Registration</h2>", unsafe_allow_html=True)
+        
+        st.markdown("---")
+        
+        with st.form("signup_form"):
+            st.markdown("#### 📝 Account Information")
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                email = st.text_input("📧 Email Address *", placeholder=f"name@{role_choice}.com", help=f"Must end with @{role_choice}.com")
+                password = st.text_input("🔒 Password *", type="password", help="Create a strong password")
+            
+            with col2:
+                confirm = st.text_input("🔑 Confirm Password *", type="password", help="Re-enter your password")
+            
+            st.markdown("<br>", unsafe_allow_html=True)
+            st.markdown("#### 👤 Personal Information")
+            
+            col3, col4 = st.columns(2)
+            
+            with col3:
+                employee_name = st.text_input("📛 Full Name *", placeholder="Enter your full name")
+                phone = st.text_input("📱 Phone Number", placeholder="05xxxxxxxx")
+                
+            with col4:
+                # Simplified form for clients
+                if role_choice == "client":
+                    hire_date = st.date_input("📅 Registration Date *", value=date.today())
+                    status = st.selectbox("📊 Status *", ["Active", "Inactive", "On Leave"], index=0)
+                    # Set employee-specific fields to None
+                    department = None
+                    position = None
+                    salary = None
                 else:
-                    try:
-                        salt = _generate_salt()
-                        password_hash = _hash_password(password, salt)
-                        # Create user account in users table
-                        ok = db.create_user(email, password_hash, salt, role=role_choice)
-                        if ok:
-                            # Add employee record to company_records with password
-                            db.add_record(
-                                employee_name=employee_name,
-                                department=department,
-                                position=position,
-                                salary=salary,
-                                hire_date=str(hire_date),
-                                email=email,
-                                phone=phone if phone else "",
-                                status=status,
-                                password=password
-                            )
-                            user = db.get_user_by_email(email)
-                            st.session_state['user'] = {'id': user['id'], 'email': user['email'], 'role': user.get('role', 'employee')}
-                            _safe_rerun()
-                        else:
-                            st.error("Failed to create account. Try again.")
-                    except Exception as e:
-                        st.error(f"❌ Error: {str(e)}")
+                    # Full form for employees
+                    department = st.selectbox("🏢 Department *", ["IT", "HR", "Sales", "Marketing", "Finance", "Administration", "Customer Service", "Logistics"])
+                    position = st.text_input("💼 Position *", placeholder="e.g., Software Engineer")
+            
+            # Show additional employee fields only if not client
+            if role_choice == "employee":
+                st.markdown("<br>", unsafe_allow_html=True)
+                st.markdown("#### 💼 Employment Details")
+                col5, col6 = st.columns(2)
+                with col5:
+                    hire_date = st.date_input("📅 Hire Date *", value=date.today())
+                with col6:
+                    status = st.selectbox("📊 Employment Status *", ["Active", "Inactive", "On Leave"], index=0)
+                
+                # Salary is auto-set to 0 for new employees - manager can edit later
+                salary = 0.0
+            
+            st.markdown("<br>", unsafe_allow_html=True)
+            submitted = st.form_submit_button(f"✅ Create {account_type} Account", use_container_width=True, type="primary")
+            
+            if submitted:
+                if not email or not password:
+                    st.error("⚠️ Please provide email and password")
+                elif password != confirm:
+                    st.error("⚠️ Passwords do not match")
+                elif role_choice == "employee" and (not employee_name or not department or not position):
+                    st.error("⚠️ Please fill all required fields (*)")
+                elif role_choice == "client" and not employee_name:
+                    st.error("⚠️ Please enter your full name")
+                elif not email.endswith(f"@{role_choice}.com"):
+                    st.error(f"❌ Email must be in format: name@{role_choice}.com")
+                else:
+                    existing = db.get_user_by_email(email)
+                    if existing:
+                        st.error("An account with this email already exists. ")
+                    else:
+                        try:
+                            salt = _generate_salt()
+                            password_hash = _hash_password(password, salt)
+                            # Create user account in users table
+                            ok = db.create_user(email, password_hash, salt, role=role_choice)
+                            if ok:
+                                # Add employee record to company_records with password
+                                db.add_record(
+                                    employee_name=employee_name,
+                                    department=department,  # None for clients
+                                    position=position,      # None for clients
+                                    salary=salary,          # None for clients
+                                    hire_date=str(hire_date),
+                                    email=email,
+                                    phone=phone if phone else "",
+                                    status=status,
+                                    password=password
+                                )
+                                user = db.get_user_by_email(email)
+                                st.session_state['user'] = {'id': user['id'], 'email': user['email'], 'role': user.get('role', 'employee')}
+                                # Clear signup type from session
+                                if 'signup_type' in st.session_state:
+                                    del st.session_state['signup_type']
+                                _safe_rerun()
+                            else:
+                                st.error("Failed to create account. Try again.")
+                        except Exception as e:
+                            st.error(f"❌ Error: {str(e)}")
 
 else:
     # For all other pages require login
@@ -668,17 +830,16 @@ if page == "🏠 Dashboard":
     st.header("Main Dashboard")
     
     # Use cached data for statistics
-    with st.spinner("Loading dashboard..."):
-        df = get_cached_records()
-        if not df.empty:
-            stats = {
-                'total_employees': len(df),
-                'total_departments': df['department'].nunique(),
-                'avg_salary': df['salary'].mean(),
-                'active_employees': len(df[df['status'] == 'Active'])
-            }
-        else:
-            stats = {'total_employees': 0, 'total_departments': 0, 'avg_salary': 0, 'active_employees': 0}
+    df = get_cached_records()
+    if not df.empty:
+        stats = {
+            'total_employees': len(df),
+            'total_departments': df['department'].nunique(),
+            'avg_salary': df['salary'].mean(),
+            'active_employees': len(df[df['status'] == 'Active'])
+        }
+    else:
+        stats = {'total_employees': 0, 'total_departments': 0, 'avg_salary': 0, 'active_employees': 0}
     
     col1, col2, col3, col4 = st.columns(4)
     
@@ -731,7 +892,6 @@ elif page == "📋 View Data":
                 credentials = db.generate_employee_passwords()
                 if credentials:
                     st.success(f"✅ Generated {len(credentials)} passwords!")
-                    time.sleep(1)
                     _safe_rerun()
                 else:
                     st.info("All employees already have passwords!")
@@ -739,27 +899,37 @@ elif page == "📋 View Data":
                 st.error(f"Error: {str(e)}")
     
     if search_term:
-        with st.spinner("Searching..."):
-            df = db.search_records(search_term)
+        df = db.search_records(search_term)
         st.info(f"Found {len(df)} results")
     else:
         df = get_cached_records()
     
     if not df.empty:
-        col_f1, col_f2 = st.columns(2)
+        col_f1, col_f2, col_f3 = st.columns(3)
         with col_f1:
-            departments = ['All'] + list(df['department'].unique())
+            departments = ['All'] + list(df['department'].dropna().unique())
             selected_dept = st.selectbox("Filter by Department:", departments)
         
         with col_f2:
             statuses = ['All'] + list(df['status'].unique())
             selected_status = st.selectbox("Filter by Status:", statuses)
         
+        with col_f3:
+            # Add role filter
+            if 'role' in df.columns:
+                roles = ['All'] + [r for r in df['role'].unique() if pd.notna(r)]
+                selected_role = st.selectbox("Filter by Role:", roles)
+            else:
+                selected_role = 'All'
+        
         if selected_dept != 'All':
             df = df[df['department'] == selected_dept]
         
         if selected_status != 'All':
             df = df[df['status'] == selected_status]
+        
+        if selected_role != 'All' and 'role' in df.columns:
+            df = df[df['role'] == selected_role]
         
         # Pagination for better performance
         rows_per_page = 50
@@ -785,9 +955,28 @@ elif page == "📋 View Data":
         end_idx = start_idx + rows_per_page
         df_page = df.iloc[start_idx:end_idx]
         
+        # Display different columns based on role filter
+        if selected_role == 'client':
+            # For clients, show only: id, name, email, phone, status, hire_date, password, created_at
+            client_cols = ['id', 'employee_name', 'email', 'phone', 'status', 'hire_date']
+            if 'password' in df_page.columns:
+                client_cols.insert(3, 'password')
+            if 'role' in df_page.columns:
+                client_cols.insert(3, 'role')
+            if 'created_at' in df_page.columns:
+                client_cols.append('created_at')
+            
+            # Filter only existing columns
+            display_cols = [col for col in client_cols if col in df_page.columns]
+            df_display = df_page[display_cols]
+            
+            st.info("📋 **Client View**: Showing client-specific fields only (Name, Email, Phone, Status)")
+        else:
+            df_display = df_page
+        
         # Use column_config for better performance
         st.dataframe(
-            df_page, 
+            df_display, 
             use_container_width=True, 
             height=400,
             hide_index=True
@@ -799,40 +988,81 @@ elif page == "➕ Add Data":
     st.header("Add New Record")
     
     with st.form("add_form"):
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            employee_name = st.text_input("Employee Name *", placeholder="Enter full name")
-            department = st.selectbox("Department *", ["IT", "HR", "Sales", "Marketing", "Finance", "Administration", "Customer Service", "Logistics"])
-            position = st.text_input("Position *", placeholder="Enter job title")
-            salary = st.number_input("Salary ($) *", min_value=0.0, step=100.0, format="%.2f")
-        
-        with col2:
-            hire_date = st.date_input("Hire Date *", value=date.today())
-            email = st.text_input("Email *", placeholder="example@company.com")
-            phone = st.text_input("Phone", placeholder="05xxxxxxxx")
-            status = st.selectbox("Status *", ["Active", "Inactive", "On Leave"])
-        
-        # User account settings
-        st.subheader("Create User Account")
-        col3, col4 = st.columns(2)
-        with col3:
+        # User account settings at the top to determine role first
+        st.subheader("Account Settings")
+        col_acc1, col_acc2 = st.columns(2)
+        with col_acc1:
             create_account = st.checkbox("Create login account for this employee", value=True)
-        with col4:
+        with col_acc2:
             if create_account:
                 account_role = st.selectbox("Account Role", ["employee", "client", "admin"], index=0)
                 auto_password = st.checkbox("Auto-generate password", value=True)
                 if not auto_password:
                     user_password = st.text_input("Password", type="password", placeholder="Enter password")
+            else:
+                account_role = "employee"
+        
+        st.markdown("---")
+        st.subheader("Personal Information")
+        
+        # Check if adding a client
+        is_client = create_account and account_role == "client"
+        
+        if is_client:
+            # Simplified form for clients (no department, position, salary)
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                employee_name = st.text_input("Client Name *", placeholder="Enter full name")
+                email = st.text_input("Email *", placeholder="client@client.com")
+                hire_date = st.date_input("Registration Date *", value=date.today())
+            
+            with col2:
+                phone = st.text_input("Phone", placeholder="05xxxxxxxx")
+                status = st.selectbox("Status *", ["Active", "Inactive", "On Leave"])
+            
+            # Set employee fields to None for clients
+            department = None
+            position = None
+            salary = None
+        else:
+            # Full form for employees
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                employee_name = st.text_input("Employee Name *", placeholder="Enter full name")
+                department = st.selectbox("Department *", ["IT", "HR", "Sales", "Marketing", "Finance", "Administration", "Customer Service", "Logistics"])
+                position = st.text_input("Position *", placeholder="Enter job title")
+                salary = st.number_input("Salary ($) *", min_value=0.0, step=100.0, format="%.2f")
+            
+            with col2:
+                hire_date = st.date_input("Hire Date *", value=date.today())
+                email = st.text_input("Email *", placeholder="example@company.com")
+                phone = st.text_input("Phone", placeholder="05xxxxxxxx")
+                status = st.selectbox("Status *", ["Active", "Inactive", "On Leave"], index=0)
         
         submitted = st.form_submit_button("➕ Add Record", width='stretch')
         
         if submitted:
-            if employee_name and department and position and salary > 0 and email:
-                # Validate email format if creating account
-                if create_account and not email.endswith(f"@{account_role}.com"):
+            # Validate based on role
+            if is_client:
+                # For clients, only name and email are required
+                if not employee_name or not email:
+                    st.error("⚠️ Please fill all required fields (*)")
+                elif not email.endswith("@client.com"):
+                    st.error("❌ Email must be in format: name@client.com")
+                else:
+                    proceed_with_add = True
+            else:
+                # For employees, all fields are required
+                if not employee_name or not department or not position or salary <= 0 or not email:
+                    st.error("⚠️ Please fill all required fields (*)")
+                elif create_account and not email.endswith(f"@{account_role}.com"):
                     st.error(f"❌ Email must be in format: name@{account_role}.com")
                 else:
+                    proceed_with_add = True
+            
+            if 'proceed_with_add' in locals() and proceed_with_add:
                     try:
                         # Set password to '123' for employee record
                         employee_password = '123'
@@ -840,9 +1070,9 @@ elif page == "➕ Add Data":
                         # Add record to company_records
                         db.add_record(
                             employee_name=employee_name,
-                            department=department,
-                            position=position,
-                            salary=salary,
+                            department=department,  # None for clients
+                            position=position,      # None for clients
+                            salary=salary,          # None for clients
                             hire_date=str(hire_date),
                             email=email,
                             phone=phone,
@@ -900,32 +1130,78 @@ elif page == "✏️ Edit Data":
     df = get_cached_records()
     
     if not df.empty:
-        record_options = [f"{row['id']} - {row['employee_name']} ({row['department']})" for _, row in df.iterrows()]
-        selected_record = st.selectbox("Select record to edit:", record_options)
+        # Add role filter
+        col_filter1, col_filter2 = st.columns([1, 3])
+        with col_filter1:
+            role_filter = st.selectbox("Filter by Role:", ["All", "manager", "employee", "client"], index=0)
         
-        if selected_record:
-            record_id = int(selected_record.split(' - ')[0])
-            record = df[df['id'] == record_id].iloc[0]
+        # Filter records based on role
+        if role_filter != "All":
+            df_filtered = df[df['role'] == role_filter]
+        else:
+            df_filtered = df
+        
+        if df_filtered.empty:
+            st.warning(f"No records found for role: {role_filter}")
+        else:
+            # Different display for record options based on role
+            if role_filter == 'client':
+                record_options = [f"{row['id']} - {row['employee_name']} ({row.get('email', 'N/A')})" for _, row in df_filtered.iterrows()]
+            else:
+                record_options = [f"{row['id']} - {row['employee_name']} ({row['department']})" for _, row in df_filtered.iterrows()]
             
-            st.markdown("---")
+            selected_record = st.selectbox("Select record to edit:", record_options)
+        
+            if selected_record:
+                record_id = int(selected_record.split(' - ')[0])
+                record = df_filtered[df_filtered['id'] == record_id].iloc[0]
             
-            with st.form("edit_form"):
-                col1, col2 = st.columns(2)
-                
-                with col1:
-                    employee_name = st.text_input("Employee Name *", value=record['employee_name'])
-                    department = st.selectbox("Department *", ["IT", "HR", "Sales", "Marketing", "Finance", "Administration", "Customer Service"], index=["IT", "HR", "Sales", "Marketing", "Finance", "Administration", "Customer Service"].index(record['department']) if record['department'] in ["IT", "HR", "Sales", "Marketing", "Finance", "Administration", "Customer Service"] else 0)
-                    position = st.text_input("Position *", value=record['position'])
-                    salary = st.number_input("Salary ($) *", value=float(record['salary']), min_value=0.0, step=100.0, format="%.2f")
-                
-                with col2:
-                    hire_date = st.date_input("Hire Date *", value=pd.to_datetime(record['hire_date']).date())
-                    email = st.text_input("Email", value=record['email'] if pd.notna(record['email']) else "")
-                    phone = st.text_input("Phone", value=record['phone'] if pd.notna(record['phone']) else "")
-                    status = st.selectbox("Status *", ["Active", "Inactive", "On Leave"], index=["Active", "Inactive", "On Leave"].index(record['status']) if record['status'] in ["Active", "Inactive", "On Leave"] else 0)
-                    password = st.text_input("Password", value=record.get('password', '123'), help="Employee password for records")
-                
-                submitted = st.form_submit_button("💾 Save Changes", width='stretch')
+                # Check if user is a client
+                is_client = (role_filter == 'client') or (pd.notna(record.get('role')) and record.get('role') == 'client')
+            
+                st.markdown("---")
+            
+                if is_client:
+                    # Simplified form for clients
+                    st.info("👤 **Editing Client Record** - Clients have a simplified profile")
+                    with st.form("edit_form"):
+                        col1, col2 = st.columns(2)
+                        
+                        with col1:
+                            employee_name = st.text_input("Client Name *", value=record['employee_name'])
+                            email = st.text_input("Email *", value=record['email'] if pd.notna(record['email']) else "")
+                            hire_date = st.date_input("Registration Date *", value=pd.to_datetime(record['hire_date']).date())
+                        
+                        with col2:
+                            phone = st.text_input("Phone", value=record['phone'] if pd.notna(record['phone']) else "")
+                            status = st.selectbox("Status *", ["Active", "Inactive"], index=["Active", "Inactive"].index(record['status']) if record['status'] in ["Active", "Inactive"] else 0)
+                            password = st.text_input("Password", value=record.get('password', '123'), help="Client password")
+                        
+                        # Set client-specific values
+                        department = None
+                        position = None
+                        salary = None
+                        
+                        submitted = st.form_submit_button("💾 Save Client Info", width='stretch')
+                else:
+                    # Full form for employees/managers
+                    with st.form("edit_form"):
+                        col1, col2 = st.columns(2)
+                        
+                        with col1:
+                            employee_name = st.text_input("Employee Name *", value=record['employee_name'])
+                            department = st.selectbox("Department *", ["IT", "HR", "Sales", "Marketing", "Finance", "Administration", "Customer Service"], index=["IT", "HR", "Sales", "Marketing", "Finance", "Administration", "Customer Service"].index(record['department']) if record['department'] in ["IT", "HR", "Sales", "Marketing", "Finance", "Administration", "Customer Service"] else 0)
+                            position = st.text_input("Position *", value=record['position'])
+                            salary = st.number_input("Salary ($) *", value=float(record['salary']) if pd.notna(record.get('salary')) else 0.0, min_value=0.0, step=100.0, format="%.2f")
+                        
+                        with col2:
+                            hire_date = st.date_input("Hire Date *", value=pd.to_datetime(record['hire_date']).date())
+                            email = st.text_input("Email", value=record['email'] if pd.notna(record['email']) else "")
+                            phone = st.text_input("Phone", value=record['phone'] if pd.notna(record['phone']) else "")
+                            status = st.selectbox("Status *", ["Active", "Inactive", "On Leave"], index=["Active", "Inactive", "On Leave"].index(record['status']) if record['status'] in ["Active", "Inactive", "On Leave"] else 0)
+                            password = st.text_input("Password", value=record.get('password', '123'), help="Employee password for records")
+                        
+                        submitted = st.form_submit_button("💾 Save Changes", width='stretch')
                 
                 if submitted:
                     try:
@@ -954,65 +1230,88 @@ elif page == "🗑️ Delete Data":
     df = get_cached_records()
     
     if not df.empty:
-        record_options = [f"{row['id']} - {row['employee_name']} ({row['department']})" for _, row in df.iterrows()]
-        selected_record = st.selectbox("Select record to delete:", record_options)
+        # Add role filter
+        col_filter1, col_filter2 = st.columns([1, 3])
+        with col_filter1:
+            role_filter = st.selectbox("Filter by Role:", ["All", "manager", "employee", "client"], index=0)
         
-        if selected_record:
-            record_id = int(selected_record.split(' - ')[0])
-            record = df[df['id'] == record_id].iloc[0]
+        # Filter records based on role
+        if role_filter != "All":
+            df_filtered = df[df['role'] == role_filter]
+        else:
+            df_filtered = df
+        
+        if df_filtered.empty:
+            st.warning(f"No records found for role: {role_filter}")
+        else:
+            # Different display for record options based on role
+            if role_filter == 'client':
+                record_options = [f"{row['id']} - {row['employee_name']} ({row.get('email', 'N/A')})" for _, row in df_filtered.iterrows()]
+            else:
+                record_options = [f"{row['id']} - {row['employee_name']} ({row['department']})" for _, row in df_filtered.iterrows()]
             
-            st.markdown("---")
-            st.subheader("Record Information:")
+            selected_record = st.selectbox("Select record to delete:", record_options)
+        
+            if selected_record:
+                record_id = int(selected_record.split(' - ')[0])
+                record = df_filtered[df_filtered['id'] == record_id].iloc[0]
+                
+                # Check if user is a client
+                is_client = (role_filter == 'client') or (pd.notna(record.get('role')) and record.get('role') == 'client')
+                
+                st.markdown("---")
+                st.subheader("Record Information:")
             
-            col1, col2 = st.columns(2)
-            with col1:
-                st.write(f"**Name:** {record['employee_name']}")
-                st.write(f"**Department:** {record['department']}")
-                st.write(f"**Position:** {record['position']}")
-                st.write(f"**Password:** {record.get('password', 'N/A')}")
-            with col2:
-                st.write(f"**Salary:** {record['salary']:,.0f} $")
-                st.write(f"**Hire Date:** {record['hire_date']}")
-                st.write(f"**Status:** {record['status']}")
+                if is_client:
+                    # Simplified view for clients
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        st.write(f"**Client Name:** {record['employee_name']}")
+                        st.write(f"**Email:** {record.get('email', 'N/A')}")
+                        st.write(f"**Phone:** {record.get('phone', 'N/A')}")
+                    with col2:
+                        st.write(f"**Registration Date:** {record['hire_date']}")
+                        st.write(f"**Status:** {record['status']}")
+                        st.write(f"**Password:** {record.get('password', 'N/A')}")
+                else:
+                    # Full view for employees/managers
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        st.write(f"**Name:** {record['employee_name']}")
+                        st.write(f"**Department:** {record.get('department', 'N/A')}")
+                        st.write(f"**Position:** {record.get('position', 'N/A')}")
+                        st.write(f"**Password:** {record.get('password', 'N/A')}")
+                    with col2:
+                        st.write(f"**Salary:** {record.get('salary', 0):,.0f} $")
+                        st.write(f"**Hire Date:** {record['hire_date']}")
+                        st.write(f"**Status:** {record['status']}")
             
-            st.markdown("---")
-            st.warning("⚠️ Warning: This action cannot be undone!")
+                st.markdown("---")
+                st.warning("⚠️ Warning: This action cannot be undone!")
             
-            col1, col2, col3 = st.columns([1, 1, 2])
-            with col1:
-                if st.button("🗑️ Confirm Delete", width='stretch', type="primary"):
-                    try:
-                        db.delete_record(record_id)
-                        st.success("✅ Record deleted successfully!")
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"❌ Error: {str(e)}")
+                col1, col2, col3 = st.columns([1, 1, 2])
+                with col1:
+                    if st.button("🗑️ Confirm Delete", width='stretch', type="primary"):
+                        try:
+                            db.delete_record(record_id)
+                            st.success("✅ Record deleted successfully!")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"❌ Error: {str(e)}")
             with col2:
                 if st.button("❌ Cancel", width='stretch'):
                     st.info("Delete operation cancelled")
     else:
         st.warning("No records to delete")
 
-elif page == "📊 Analytics & Charts":
-    st.header("Analytics & Charts")
-    
-    with st.spinner("Loading analytics..."):
-        df = get_cached_records()
+elif page_matches(page, 'analytics'):
+    df = get_cached_records()
     
     if not df.empty:
         tab1, tab2, tab3 = st.tabs(["📊 Distribution", "💰 Salaries", "📈 Trends"])
         
         with tab1:
             st.subheader("Employee Distribution by Department")
-            fig1 = data_manager.create_department_chart(df)
-            st.plotly_chart(fig1, use_container_width=True)
-        
-        with tab2:
-            st.subheader("Average Salary by Department")
-            fig2 = data_manager.create_salary_chart(df)
-            st.plotly_chart(fig2, use_container_width=True)
-        
-        with tab3:
             col1, col2 = st.columns(2)
             with col1:
                 st.subheader("Employee Status")
@@ -1207,8 +1506,7 @@ elif page_matches(page, 'manage_shipments'):
 
     try:
         # Fetch data from database with caching
-        with st.spinner("Loading shipments..."):
-            df = get_cached_shipments()
+        df = get_cached_shipments()
         
         if df.empty:
             st.info("No shipments found. Add a new shipment to get started.")
@@ -1285,7 +1583,6 @@ elif page_matches(page, 'manage_shipments'):
                                 db.update_customs_status(ship_data['id'], customs_check)
                                 
                                 st.success("✅ Status updated successfully!")
-                                time.sleep(0.5)
                                 st.rerun()
                             except Exception as e:
                                 st.error(f"❌ Error: {str(e)}")
@@ -1564,7 +1861,6 @@ elif page_matches(page, 'add_shipment'):
                     
                     if shipment_id:
                         st.success(f"✅ Shipment {shipment_number} created successfully with ID: {shipment_id}")
-                        time.sleep(2)
                         _safe_rerun()
                     else:
                         st.error("❌ Failed to create shipment. The shipment number might already exist.")
@@ -1894,7 +2190,7 @@ elif page_matches(page, 'edit_shipment'):
         st.session_state.last_edited_shipment = None
 
     try:
-        # Get fresh data every time
+        # Get fresh data
         df = db.get_all_shipments()
         
         if df.empty:
@@ -1937,7 +2233,7 @@ elif page_matches(page, 'edit_shipment'):
                     value_amount = st.number_input(t('total_value'), value=float(ship_data['total_value']), min_value=0.0)
                     currency = st.selectbox("Currency", ["USD", "EUR", "TRY"], 
                                            index=["USD", "EUR", "TRY"].index(ship_data['currency']))
-                
+        
                 submitted = st.form_submit_button("💾 Save Changes")
                 
                 if submitted:
@@ -1963,7 +2259,6 @@ elif page_matches(page, 'edit_shipment'):
                         
                         st.success(f"✅ Shipment {selected_shipment} updated successfully!")
                         st.info("Please refresh the page to see changes in the table.")
-                        time.sleep(1)
                         st.rerun()
                         
                     except Exception as e:
@@ -2022,7 +2317,6 @@ elif page_matches(page, 'delete_shipment'):
                     conn.close()
                     
                     st.success(f"✅ Shipment {selected_shipment} deleted successfully!")
-                    time.sleep(1)
                     _safe_rerun()
                 except Exception as e:
                     st.error(f"❌ Error deleting shipment: {str(e)}")
