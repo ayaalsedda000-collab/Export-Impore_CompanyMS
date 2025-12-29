@@ -4,12 +4,21 @@ import hashlib
 import secrets
 import time
 import importlib
+import logging
 from datetime import datetime, date
 from database_postgres import Database
 from data_manager import DataManager
 import os
 from PIL import Image
 from functools import lru_cache
+
+# Configure logging
+logging.basicConfig(
+    filename='eims_app.log',
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 # Configure page with performance optimizations
 st.set_page_config(
@@ -576,30 +585,37 @@ if page_matches(page, 'login'):
             if not email or not password:
                 st.error("Please provide email and password")
             else:
-                user = db.get_user_by_email(email)
-                if not user:
-                    st.error("No account found with that email. Please sign up.")
-                else:
-                    hash_val = _hash_password(password, user['salt'])
-                    if hash_val == user['password_hash']:
-                        # include role so UI can branch by permissions
-                        user_role = user.get('role', 'employee')
-                        st.session_state['user'] = {'id': user['id'], 'email': user['email'], 'role': user_role}
-                        # redirect based on role
-                        try:
-                            if user_role == 'manager':
-                                st.query_params = {"page": "dashboard"}
-                            elif user_role == 'employee':
-                                st.query_params = {"page": "manage_shipments"}
-                            elif user_role == 'client':
-                                st.query_params = {"page": "my_shipments"}
-                            else:
-                                st.query_params = {"page": "request_leave"}
-                        except Exception:
-                            pass
-                        _safe_rerun()
+                try:
+                    user = db.get_user_by_email(email)
+                    if not user:
+                        st.error("No account found with that email. Please sign up.")
+                        logger.warning(f"Failed login attempt for non-existent email: {email}")
                     else:
-                        st.error("Incorrect password")
+                        hash_val = _hash_password(password, user['salt'])
+                        if hash_val == user['password_hash']:
+                            # include role so UI can branch by permissions
+                            user_role = user.get('role', 'employee')
+                            st.session_state['user'] = {'id': user['id'], 'email': user['email'], 'role': user_role}
+                            logger.info(f"Successful login: {email} (role: {user_role})")
+                            # redirect based on role
+                            try:
+                                if user_role == 'manager':
+                                    st.query_params = {"page": "dashboard"}
+                                elif user_role == 'employee':
+                                    st.query_params = {"page": "manage_shipments"}
+                                elif user_role == 'client':
+                                    st.query_params = {"page": "my_shipments"}
+                                else:
+                                    st.query_params = {"page": "request_leave"}
+                            except Exception:
+                                pass
+                            _safe_rerun()
+                        else:
+                            st.error("Incorrect password")
+                            logger.warning(f"Failed login attempt for {email}: incorrect password")
+                except Exception as e:
+                    st.error("An error occurred during login. Please try again.")
+                    logger.error(f"Login error for {email}: {str(e)}")
 
 elif page_matches(page, 'signup'):
     # Check if user has selected account type
@@ -788,8 +804,8 @@ elif page_matches(page, 'signup'):
                     st.error("⚠️ Please fill all required fields (*)")
                 elif role_choice == "client" and not employee_name:
                     st.error("⚠️ Please enter your full name")
-                elif not email.endswith(f"@{role_choice}.com"):
-                    st.error(f"❌ Email must be in format: name@{role_choice}.com")
+                elif '@' not in email or '.' not in email.split('@')[1] if '@' in email else False:
+                    st.error("❌ Please enter a valid email address")
                 else:
                     existing = db.get_user_by_email(email)
                     if existing:
@@ -1033,25 +1049,22 @@ elif page == "➕ Add Data":
                 # For clients, only name and email are required
                 if not employee_name or not email:
                     st.error("⚠️ Please fill all required fields (*)")
-                elif not email.endswith("@client.com"):
-                    st.error("❌ Email must be in format: name@client.com")
+                elif '@' not in email or '.' not in email.split('@')[1] if '@' in email else False:
+                    st.error("❌ Please enter a valid email address")
                 else:
                     proceed_with_add = True
             else:
                 # For employees, all fields are required
                 if not employee_name or not department or not position or salary <= 0 or not email:
                     st.error("⚠️ Please fill all required fields (*)")
-                elif create_account and not email.endswith(f"@{account_role}.com"):
-                    st.error(f"❌ Email must be in format: name@{account_role}.com")
+                elif create_account and ('@' not in email or '.' not in email.split('@')[1] if '@' in email else False):
+                    st.error("❌ Please enter a valid email address")
                 else:
                     proceed_with_add = True
             
             if 'proceed_with_add' in locals() and proceed_with_add:
                     try:
-                        # Set password to '123' for employee record
-                        employee_password = '123'
-                        
-                        # Add record to company_records
+                        # Add record to company_records (no password field)
                         db.add_record(
                             employee_name=employee_name,
                             department=department,  # None for clients
@@ -1061,7 +1074,7 @@ elif page == "➕ Add Data":
                             email=email,
                             phone=phone,
                             status=status,
-                            password=employee_password
+                            password=''  # Empty - authentication via users table only
                         )
                         
                         # Create user account if requested
@@ -1159,12 +1172,12 @@ elif page == "✏️ Edit Data":
                         with col2:
                             phone = st.text_input("Phone", value=record['phone'] if pd.notna(record['phone']) else "")
                             status = st.selectbox("Status *", ["Active", "Inactive"], index=["Active", "Inactive"].index(record['status']) if record['status'] in ["Active", "Inactive"] else 0)
-                            password = st.text_input("Password", value=record.get('password', '123'), help="Client password")
                         
                         # Set client-specific values
                         department = None
                         position = None
                         salary = None
+                        password = None  # Not used - authentication via users table
                         
                         submitted = st.form_submit_button("💾 Save Client Info", width='stretch')
                 else:
@@ -1183,7 +1196,8 @@ elif page == "✏️ Edit Data":
                             email = st.text_input("Email", value=record['email'] if pd.notna(record['email']) else "")
                             phone = st.text_input("Phone", value=record['phone'] if pd.notna(record['phone']) else "")
                             status = st.selectbox("Status *", ["Active", "Inactive", "On Leave"], index=["Active", "Inactive", "On Leave"].index(record['status']) if record['status'] in ["Active", "Inactive", "On Leave"] else 0)
-                            password = st.text_input("Password", value=record.get('password', '123'), help="Employee password for records")
+                        
+                        password = None  # Not used - authentication via users table
                         
                         submitted = st.form_submit_button("💾 Save Changes", width='stretch')
                 
@@ -1256,7 +1270,7 @@ elif page == "🗑️ Delete Data":
                     with col2:
                         st.write(f"**Registration Date:** {record['hire_date']}")
                         st.write(f"**Status:** {record['status']}")
-                        st.write(f"**Password:** {record.get('password', 'N/A')}")
+                        st.write(f"**Role:** Client")
                 else:
                     # Full view for employees/managers
                     col1, col2 = st.columns(2)
@@ -1264,7 +1278,7 @@ elif page == "🗑️ Delete Data":
                         st.write(f"**Name:** {record['employee_name']}")
                         st.write(f"**Department:** {record.get('department', 'N/A')}")
                         st.write(f"**Position:** {record.get('position', 'N/A')}")
-                        st.write(f"**Password:** {record.get('password', 'N/A')}")
+                        st.write(f"**Email:** {record.get('email', 'N/A')}")
                     with col2:
                         st.write(f"**Salary:** {record.get('salary', 0):,.0f} $")
                         st.write(f"**Hire Date:** {record['hire_date']}")
