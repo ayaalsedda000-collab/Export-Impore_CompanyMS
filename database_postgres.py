@@ -222,6 +222,15 @@ class Database:
         conn.commit()
         conn.close()
     
+    def update_user_password(self, user_id, new_password_hash, new_salt):
+        """Update user password with new hash and salt"""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        cursor.execute('UPDATE users SET password_hash=%s, salt=%s WHERE id=%s', 
+                      (new_password_hash, new_salt, user_id))
+        conn.commit()
+        conn.close()
+    
     def get_all_records(self):
         return pd.read_sql_query(
             """SELECT cr.*, u.role 

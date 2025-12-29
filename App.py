@@ -114,7 +114,7 @@ TRANSLATIONS = {
         'upload_document': 'Upload Document',
         'cargo_requests': '📝 Cargo Requests',
         'request_cargo_change': 'Request Cargo Change',
-        'manage_cargo_requests': 'Manage Cargo Requests',
+        'manage_cargo_requests': '📋Manage Cargo Requests',
         'request_type': 'Request Type',
         'modify': 'Modify',
         'remove': 'Remove',
@@ -1720,6 +1720,54 @@ elif page_matches(page, 'manage_users'):
                                 st.error("User not found in users table. Please create login account first.")
                         except Exception as e:
                             st.error(f"Failed to update role: {str(e)}")
+            
+            st.markdown("---")
+            st.subheader("🔐 Reset User Password")
+            st.info("Generate a new random password for a user who forgot their credentials.")
+            
+            if users_with_email:
+                col1, col2 = st.columns([2, 1])
+                with col1:
+                    reset_user_email = st.selectbox("Select user to reset password:", users_with_email, key="reset_password_user")
+                with col2:
+                    if st.button("🔄 Reset Password"):
+                        try:
+                            # Get user from users table
+                            existing_user = db.get_user_by_email(reset_user_email)
+                            if existing_user:
+                                # Generate new random password
+                                import secrets
+                                import string
+                                new_password = ''.join(secrets.choice(string.ascii_letters + string.digits) for _ in range(12))
+                                
+                                # Create salt and hash
+                                salt = secrets.token_hex(16)
+                                hashed = hashlib.sha256((new_password + salt).encode()).hexdigest()
+                                
+                                # Update password in users table
+                                db.update_user_password(existing_user['id'], hashed, salt)
+                                
+                                # Log the password reset
+                                logger.info(f"Password reset for user: {reset_user_email} by manager: {user.get('email')}")
+                                
+                                # Display new password to manager
+                                st.success("✅ Password reset successfully!")
+                                st.markdown(f"### New Password for **{reset_user_email}**")
+                                st.code(new_password, language=None)
+                                st.warning("⚠️ Please save this password and provide it to the user. It will not be shown again.")
+                                
+                                # Save to log file
+                                try:
+                                    with open('password_resets.txt', 'a', encoding='utf-8') as f:
+                                        from datetime import datetime
+                                        f.write(f"{datetime.now()}: {reset_user_email} - {new_password} (reset by {user.get('email')})\n")
+                                except Exception as e:
+                                    logger.error(f"Failed to save password to file: {str(e)}")
+                            else:
+                                st.error("User not found in users table.")
+                        except Exception as e:
+                            st.error(f"Failed to reset password: {str(e)}")
+                            logger.error(f"Password reset error for {reset_user_email}: {str(e)}")
     except Exception as e:
         st.error(f"Error loading users: {str(e)}")
 
