@@ -2007,7 +2007,7 @@ elif page_matches(page, 'manage_shipments'):
                         if st.form_submit_button("📍 Add Update", width='stretch'):
                             if location:
                                 try:
-                                    db.add_tracking_update(ship_data['id'], location, track_status, 
+                                    db.add_tracking_update(int(ship_data['id']), location, track_status, 
                                                           track_notes, str(track_date), user['id'])
                                     st.success("✅ Tracking update added successfully!")
                                     _safe_rerun()
