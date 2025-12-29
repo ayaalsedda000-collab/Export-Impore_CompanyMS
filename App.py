@@ -1011,7 +1011,8 @@ if page == "🏠 Dashboard":
     st.subheader("Recent Records")
     df = get_cached_records()
     if not df.empty:
-        st.dataframe(df.head(5), width='stretch')
+        df_display = df.drop(columns=['password'], errors='ignore')
+        st.dataframe(df_display.head(5), width='stretch')
     else:
         st.info("No data available")
 
@@ -1068,10 +1069,8 @@ elif page == "📋 View Data":
         
         # Display different columns based on role filter
         if selected_role == 'client':
-            # For clients, show only: id, name, email, phone, status, hire_date, password, created_at
+            # For clients, show only: id, name, email, phone, status, hire_date, created_at
             client_cols = ['id', 'employee_name', 'email', 'phone', 'status', 'hire_date']
-            if 'password' in df.columns:
-                client_cols.insert(3, 'password')
             if 'role' in df.columns:
                 client_cols.insert(3, 'role')
             if 'created_at' in df.columns:
@@ -1081,7 +1080,8 @@ elif page == "📋 View Data":
             display_cols = [col for col in client_cols if col in df.columns]
             df_display = df[display_cols]
         else:
-            df_display = df
+            # For employees/managers, hide password column
+            df_display = df.drop(columns=['password'], errors='ignore')
         
         # Use column_config for better performance
         st.dataframe(
@@ -1692,8 +1692,9 @@ elif page_matches(page, 'manage_users'):
         if df.empty:
             st.info("No users found.")
         else:
-            # Display the full data table
-            st.dataframe(df, use_container_width=True, height=400)
+            # Display the full data table (hide password column)
+            df_display = df.drop(columns=['password'], errors='ignore')
+            st.dataframe(df_display, use_container_width=True, height=400)
             
             st.markdown("---")
             st.subheader("Change User Role")
