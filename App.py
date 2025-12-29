@@ -1105,11 +1105,13 @@ elif page == "➕ Add Data":
         if create_account:
             account_role = st.selectbox("Account Role", ["employee", "client", "manager"], index=0)
             auto_password = st.checkbox("Auto-generate password", value=True)
+            user_password = None  # Initialize
             if not auto_password:
                 user_password = st.text_input("Password", type="password", placeholder="Enter password")
         else:
             account_role = "employee"
             auto_password = True
+            user_password = None
     
     st.markdown("---")
     
@@ -1199,7 +1201,7 @@ elif page == "➕ Add Data":
                                     generated_password = secrets.token_urlsafe(10)
                                     password_to_use = generated_password
                                 else:
-                                    password_to_use = user_password if 'user_password' in locals() and user_password else secrets.token_urlsafe(10)
+                                    password_to_use = user_password if user_password else secrets.token_urlsafe(10)
                                 
                                 # Create user account
                                 salt = _generate_salt()
