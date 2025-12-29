@@ -1852,10 +1852,10 @@ elif page_matches(page, 'manage_shipments'):
                         if st.form_submit_button("Update Status"):
                             try:
                                 # Update shipment status
-                                db.update_shipment_status(ship_data['id'], new_status, 
+                                db.update_shipment_status(int(ship_data['id']), new_status, 
                                                         str(actual_arrival_date) if actual_arrival_date else None)
                                 # Update customs status
-                                db.update_customs_status(ship_data['id'], customs_check)
+                                db.update_customs_status(int(ship_data['id']), customs_check)
                                 
                                 st.success("✅ Status updated successfully!")
                                 st.rerun()
@@ -1864,7 +1864,7 @@ elif page_matches(page, 'manage_shipments'):
                 
                 with tab2:
                     st.subheader(t('cargo_items'))
-                    cargo_df = db.get_cargo_items_by_shipment(ship_data['id'])
+                    cargo_df = db.get_cargo_items_by_shipment(int(ship_data['id']))
                     if not cargo_df.empty:
                         st.dataframe(cargo_df, width='stretch')
                         
@@ -1978,7 +1978,7 @@ elif page_matches(page, 'manage_shipments'):
                 
                 with tab3:
                     st.subheader(t('tracking'))
-                    tracking_df = db.get_tracking_updates(ship_data['id'])
+                    tracking_df = db.get_tracking_updates(int(ship_data['id']))
                     if not tracking_df.empty:
                         for _, row in tracking_df.iterrows():
                             status_class = row['status'].lower().replace(' ', '-')
@@ -2018,7 +2018,7 @@ elif page_matches(page, 'manage_shipments'):
                 
                 with tab4:
                     st.subheader(t('documents'))
-                    docs_df = db.get_shipment_documents(ship_data['id'])
+                    docs_df = db.get_shipment_documents(int(ship_data['id']))
                     if not docs_df.empty:
                         for _, doc in docs_df.iterrows():
                             st.markdown(f"""
@@ -2051,7 +2051,7 @@ elif page_matches(page, 'manage_shipments'):
                                     with open(file_path, "wb") as f:
                                         f.write(uploaded_file.getbuffer())
                                     
-                                    db.add_shipment_document(ship_data['id'], doc_type, file_path, user['id'], doc_notes)
+                                    db.add_shipment_document(int(ship_data['id']), doc_type, file_path, user['id'], doc_notes)
                                     st.success("Document uploaded!")
                                     _safe_rerun()
                                 except Exception as e:
@@ -2194,7 +2194,7 @@ elif page_matches(page, 'my_shipments'):
             # Show cargo items
             st.markdown("---")
             st.subheader(t('cargo_items'))
-            cargo_df = db.get_cargo_items_by_shipment(ship_data['id'])
+            cargo_df = db.get_cargo_items_by_shipment(int(ship_data['id']))
             if not cargo_df.empty:
                 st.dataframe(cargo_df[['item_name', 'quantity', 'unit', 'weight', 'value']], width='stretch')
             else:
@@ -2203,7 +2203,7 @@ elif page_matches(page, 'my_shipments'):
             # Show tracking
             st.markdown("---")
             st.subheader(t('tracking'))
-            tracking_df = db.get_tracking_updates(ship_data['id'])
+            tracking_df = db.get_tracking_updates(int(ship_data['id']))
             if not tracking_df.empty:
                 for _, row in tracking_df.iterrows():
                     st.markdown(f"""
