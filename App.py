@@ -1019,20 +1019,7 @@ if page == "🏠 Dashboard":
 elif page == "📋 View Data":
     st.header("View All Data")
     
-    col1, col2 = st.columns([3, 1])
-    with col1:
-        search_term = st.text_input("🔍 Search Data", placeholder="Search by name, department, position...")
-    with col2:
-        if st.button("🔑 Generate Passwords", type="primary", help="Generate passwords for employees who don't have one"):
-            try:
-                credentials = db.generate_employee_passwords()
-                if credentials:
-                    st.success(f"✅ Generated {len(credentials)} passwords!")
-                    _safe_rerun()
-                else:
-                    st.info("All employees already have passwords!")
-            except Exception as e:
-                st.error(f"Error: {str(e)}")
+    search_term = st.text_input("🔍 Search Data", placeholder="Search by name, department, position...")
     
     if search_term:
         df = db.search_records(search_term)
