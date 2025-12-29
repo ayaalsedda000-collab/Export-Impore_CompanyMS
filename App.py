@@ -34,6 +34,7 @@ TRANSLATIONS = {
         'title': 'EIMS',
         'login': '🔐 Login',
         'signup': '📝 Sign Up',
+        'forgot_password': '🔑 Forgot Password',
         'dashboard': '🏠 Dashboard',
         'view': '📋 View Data',
         'add': '➕ Add Data',
@@ -138,6 +139,7 @@ TRANSLATIONS = {
         'title': 'EIMS',
         'login': '🔐 Giriş Yap',
         'signup': '📝 Kaydol',
+        'forgot_password': '🔑 Şifremi Unuttum',
         'dashboard': '🏠 Gösterge Paneli',
         'view': '📋 Verileri Görüntüle',
         'add': '➕ Veri Ekle',
@@ -301,7 +303,7 @@ def page_matches(page_label: str, page_key: str) -> bool:
 
 def get_page_key(page_label: str) -> str:
     """Get the key for a page label by checking all translations."""
-    for key in ['login', 'signup', 'dashboard', 'view', 'add', 'edit', 'delete', 
+    for key in ['login', 'signup', 'forgot_password', 'dashboard', 'view', 'add', 'edit', 'delete', 
                 'analytics', 'export', 'request_leave', 'manage_leaves', 'manage_users',
                 'cargo_requests', 'manage_cargo_requests']:
         if page_label in [TRANSLATIONS['en'].get(key, ''), TRANSLATIONS['tr'].get(key, '')]:
@@ -477,7 +479,7 @@ with st.sidebar:
     admin_pages = [
         t('dashboard'), t('view'), t('add'), t('edit'), t('delete'),
         t('analytics'), t('manage_leaves'), t('manage_users'),
-        t('shipment_analytics')
+        t('shipment_analytics'), t('messages')
     ]
 
     page_options = guest_pages
@@ -508,6 +510,8 @@ with st.sidebar:
                 target_label = t('login')
             elif requested == 'signup':
                 target_label = t('signup')
+            elif requested == 'forgot_password':
+                target_label = t('forgot_password')
             elif requested == 'dashboard':
                 target_label = t('dashboard')
             elif requested == 'request_leave':
@@ -538,12 +542,34 @@ with st.sidebar:
         # if any issue reading query params, just fall back to default
         default_index = 0
 
-    page = st.radio(
-        t('select_page'),
-        page_options,
-        index=default_index,
-        label_visibility="collapsed"
-    )
+    # Check if forgot_password is requested (special page not in sidebar)
+    try:
+        qp = st.query_params
+        if qp and 'page' in qp:
+            requested = qp['page'][0] if isinstance(qp['page'], (list, tuple)) and qp['page'] else qp['page']
+            if requested == 'forgot_password':
+                page = t('forgot_password')
+            else:
+                page = st.radio(
+                    t('select_page'),
+                    page_options,
+                    index=default_index,
+                    label_visibility="collapsed"
+                )
+        else:
+            page = st.radio(
+                t('select_page'),
+                page_options,
+                index=default_index,
+                label_visibility="collapsed"
+            )
+    except Exception:
+        page = st.radio(
+            t('select_page'),
+            page_options,
+            index=default_index,
+            label_visibility="collapsed"
+        )
     
     # Fix page to match current language if it was from a previous language
     page_key = get_page_key(page)
@@ -616,6 +642,92 @@ if page_matches(page, 'login'):
                 except Exception as e:
                     st.error("An error occurred during login. Please try again.")
                     logger.error(f"Login error for {email}: {str(e)}")
+    
+    # Forgot password link
+    st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
+    col1, col2, col3 = st.columns([1, 1, 1])
+    with col2:
+        if st.button("🔑 Forgot Password?", use_container_width=True):
+            st.query_params = {"page": "forgot_password"}
+            st.rerun()
+
+elif page_matches(page, 'forgot_password'):
+    st.header("🔑 Reset Your Password")
+    st.markdown("### Enter your information to request a password reset")
+    
+    with st.form("forgot_password_form"):
+        email = st.text_input("📧 Your Registered Email:", placeholder="name@role.com")
+        contact_email = st.text_input("📬 Contact Email (where manager will send new password):", 
+                                      placeholder="name@gmail.com")
+        st.info("💡 Enter a personal email (Gmail, Outlook, etc.) where the manager can send your new password.")
+        
+        submit = st.form_submit_button("📤 Submit Request")
+        
+        if submit:
+            if not email or '@' not in email:
+                st.error("Please enter your registered email address")
+            elif not contact_email or '@' not in contact_email:
+                st.error("Please enter a contact email address")
+            else:
+                try:
+                    # Check if user exists
+                    user = db.get_user_by_email(email)
+                    if not user:
+                        st.warning("If this email is registered in the system, a reset request will be sent to the manager.")
+                    else:
+                        # Get all managers
+                        conn = db.get_connection()
+                        cursor = conn.cursor()
+                        cursor.execute("SELECT id, email FROM users WHERE role='manager'")
+                        managers = cursor.fetchall()
+                        conn.close()
+                        
+                        if not managers:
+                            st.error("Sorry, no managers are available in the system. Please contact technical support.")
+                        else:
+                            # Send message to all managers with contact email
+                            subject = f"🔑 Password Reset Request - {email}"
+                            content = f"""New password reset request:
+
+Registered Email: {email}
+Contact Email: {contact_email}
+
+Please reset this user's password from the Manage Users page and send the new password to: {contact_email}
+
+This request was automatically sent from the password recovery page."""
+                            
+                            messages_sent = 0
+                            for manager_id, manager_email in managers:
+                                if db.send_message(user['id'], manager_id, subject, content, None):
+                                    messages_sent += 1
+                            
+                            if messages_sent > 0:
+                                st.success("✅ Request submitted successfully!")
+                                st.info(
+                                    f"""Your password reset request has been sent to {messages_sent} manager(s).
+
+The manager will:
+1. Reset your password from Manage Users page
+2. Send the new password to: **{contact_email}**
+
+⏰ Please check your email ({contact_email}) within 24 hours.
+
+📧 Manager contacts:"""
+                                )
+                                for _, manager_email in managers:
+                                    st.write(f"• {manager_email}")
+                                
+                                logger.info(f"Password reset request sent for: {email}, contact: {contact_email}")
+                            else:
+                                st.error("An error occurred while sending the request. Please try again later.")
+                except Exception as e:
+                    st.error("An error occurred. Please try again later.")
+                    logger.error(f"Forgot password error for {email}: {str(e)}")
+    
+    st.markdown("---")
+    if st.button("⬅️ Back to Login"):
+        st.query_params = {"page": "login"}
+        st.rerun()
 
 elif page_matches(page, 'signup'):
     # Check if user has selected account type
@@ -1049,16 +1161,16 @@ elif page == "➕ Add Data":
                 # For clients, only name and email are required
                 if not employee_name or not email:
                     st.error("⚠️ Please fill all required fields (*)")
-                elif '@' not in email or '.' not in email.split('@')[1] if '@' in email else False:
-                    st.error("❌ Please enter a valid email address")
+                elif not email.endswith("@client.com"):
+                    st.error("❌ Email must be in format: name@client.com")
                 else:
                     proceed_with_add = True
             else:
                 # For employees, all fields are required
                 if not employee_name or not department or not position or salary <= 0 or not email:
                     st.error("⚠️ Please fill all required fields (*)")
-                elif create_account and ('@' not in email or '.' not in email.split('@')[1] if '@' in email else False):
-                    st.error("❌ Please enter a valid email address")
+                elif create_account and not email.endswith(f"@{account_role}.com"):
+                    st.error(f"❌ Email must be in format: name@{account_role}.com")
                 else:
                     proceed_with_add = True
             
